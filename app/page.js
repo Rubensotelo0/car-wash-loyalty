@@ -2,36 +2,9 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
+import { persistPhone, getStoredPhoneSync, getIndexedDBPhone, clearPersistedPhone } from '../lib/storage';
 
 const MAX_STAMPS = 6;
-
-function getStoredPhone() {
-  if (typeof window === 'undefined') return '';
-  try {
-    const local = localStorage.getItem('carwash_phone');
-    if (local && local.replace(/\D/g, '').length >= 10) return local.replace(/\D/g, '');
-    const match = document.cookie.match(/(?:^|;\s*)carwash_phone=([^;]+)/);
-    if (match && match[1] && match[1].replace(/\D/g, '').length >= 10) {
-      const clean = match[1].replace(/\D/g, '');
-      try { localStorage.setItem('carwash_phone', clean); } catch (e) {}
-      return clean;
-    }
-  } catch (err) {}
-  return '';
-}
-
-function setStoredPhone(num) {
-  if (typeof window === 'undefined') return;
-  const digits = num.replace(/\D/g, '');
-  try { localStorage.setItem('carwash_phone', digits); } catch (e) {}
-  try { document.cookie = `carwash_phone=${digits}; max-age=63072000; path=/; SameSite=Lax`; } catch (e) {}
-}
-
-function removeStoredPhone() {
-  if (typeof window === 'undefined') return;
-  try { localStorage.removeItem('carwash_phone'); } catch (e) {}
-  try { document.cookie = `carwash_phone=; max-age=0; path=/; SameSite=Lax`; } catch (e) {}
-}
 
 function ClientePageContent() {
   const searchParams = useSearchParams();
@@ -59,20 +32,29 @@ function ClientePageContent() {
   useEffect(() => {
     setIsMounted(true);
     const codeFromUrl = searchParams.get('code');
-    const savedPhone = getStoredPhone();
 
-    if (savedPhone) {
-      setPhone(savedPhone);
-      fetchTarjetas(savedPhone);
-    }
-
-    if (codeFromUrl) {
-      const cleanCode = codeFromUrl.trim().toUpperCase();
-      setActiveCodeToClaim(cleanCode);
+    async function initSession() {
+      let savedPhone = getStoredPhoneSync();
       if (!savedPhone) {
-        setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número celular para continuar.`, kind: 'warn' });
+        savedPhone = await getIndexedDBPhone();
+      }
+
+      if (savedPhone) {
+        setPhone(savedPhone);
+        persistPhone(savedPhone);
+        fetchTarjetas(savedPhone);
+      }
+
+      if (codeFromUrl) {
+        const cleanCode = codeFromUrl.trim().toUpperCase();
+        setActiveCodeToClaim(cleanCode);
+        if (!savedPhone) {
+          setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número celular para continuar.`, kind: 'warn' });
+        }
       }
     }
+
+    initSession();
   }, [searchParams]);
 
   // 2. Manejo de escáner QR con cámara
@@ -149,7 +131,7 @@ function ClientePageContent() {
       setToast({ msg: 'Por favor ingresa los 10 dígitos de tu celular.', kind: 'err' });
       return;
     }
-    setStoredPhone(digits);
+    persistPhone(digits);
     setPhone(digits);
     setToast(null);
     await fetchTarjetas(digits);
@@ -160,7 +142,7 @@ function ClientePageContent() {
       qrScannerRef.current.stop().catch(() => {});
       setIsScanning(false);
     }
-    removeStoredPhone();
+    clearPersistedPhone();
     setPhone('');
     setInputPhone('');
     setCars([]);

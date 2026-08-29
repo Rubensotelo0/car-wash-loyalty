@@ -60,7 +60,18 @@ export async function POST(req) {
       return NextResponse.json({ error: 'No se pudo actualizar la tarjeta del vehículo' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, stamps: newStamps, plate: cleanPlate });
+    const response = NextResponse.json({ ok: true, stamps: newStamps, plate: cleanPlate });
+    if (cleanPhone && cleanPhone.length >= 10) {
+      response.cookies.set('carwash_phone', cleanPhone, {
+        path: '/',
+        maxAge: 31536000,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production' || req.url.startsWith('https:'),
+        httpOnly: false,
+      });
+    }
+
+    return response;
   } catch (err) {
     console.error('Error en validar-codigo:', err);
     return NextResponse.json({ error: err.message || 'Error al validar el código' }, { status: 500 });
