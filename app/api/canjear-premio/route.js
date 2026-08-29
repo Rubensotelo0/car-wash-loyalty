@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../lib/supabaseClient';
 
+export const dynamic = 'force-dynamic';
+
 // Se llama después de que el operador confirmó el número en voz alta.
 export async function POST(req) {
   const { phone } = await req.json();

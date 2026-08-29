@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer, MAX_STAMPS } from '../../../lib/supabaseClient';
 
+export const dynamic = 'force-dynamic';
+
 // Permite al operador sumar un sello manualmente a un cliente desde el panel
 export async function POST(req) {
   const { phone } = await req.json();

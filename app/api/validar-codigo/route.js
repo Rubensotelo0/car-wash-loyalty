@@ -1,52 +1,59 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer, MAX_STAMPS, TTL_MS } from '../../../lib/supabaseClient';
 
+export const dynamic = 'force-dynamic';
+
 // El cliente llama esto al escanear (o teclear) el código. Aquí vive toda la protección anti-fraude.
 export async function POST(req) {
-  const { token, phone } = await req.json();
-  if (!token || !phone) {
-    return NextResponse.json({ error: 'Falta el código o el teléfono' }, { status: 400 });
+  try {
+    const { token, phone } = await req.json();
+    if (!token || !phone) {
+      return NextResponse.json({ error: 'Falta el código o el teléfono' }, { status: 400 });
+    }
+
+    const supabase = supabaseServer();
+
+    const { data: code, error: codeErr } = await supabase
+      .from('codes').select('*').eq('token', token).single();
+
+    if (codeErr || !code) {
+      return NextResponse.json({ error: 'Código inválido o no encontrado' }, { status: 404 });
+    }
+    if (code.used) {
+      return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
+    }
+    const age = Date.now() - new Date(code.created_at).getTime();
+    if (age > TTL_MS) {
+      return NextResponse.json({ error: 'Código vencido (expiró tras 90s)' }, { status: 410 });
+    }
+
+    // Se marca como usado ANTES de sumar el sello — si dos personas intentan
+    // usarlo al mismo tiempo, la segunda ya lo encuentra marcado.
+    const { data: claimed } = await supabase
+      .from('codes')
+      .update({ used: true, used_by: phone })
+      .eq('token', token)
+      .eq('used', false)
+      .select();
+
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
+    }
+
+    const { data: existing } = await supabase
+      .from('customers').select('*').eq('phone', phone).single();
+
+    const newStamps = Math.min(MAX_STAMPS, (existing?.stamps || 0) + 1);
+
+    const { error: custErr } = await supabase
+      .from('customers')
+      .upsert({ phone, stamps: newStamps }, { onConflict: 'phone' });
+
+    if (custErr) return NextResponse.json({ error: 'No se pudo actualizar la tarjeta' }, { status: 500 });
+
+    return NextResponse.json({ ok: true, stamps: newStamps });
+  } catch (err) {
+    console.error('Error en validar-codigo:', err);
+    return NextResponse.json({ error: err.message || 'Error al validar el código' }, { status: 500 });
   }
-
-  const supabase = supabaseServer();
-
-  const { data: code, error: codeErr } = await supabase
-    .from('codes').select('*').eq('token', token).single();
-
-  if (codeErr || !code) {
-    return NextResponse.json({ error: 'Código inválido' }, { status: 404 });
-  }
-  if (code.used) {
-    return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
-  }
-  const age = Date.now() - new Date(code.created_at).getTime();
-  if (age > TTL_MS) {
-    return NextResponse.json({ error: 'Código vencido' }, { status: 410 });
-  }
-
-  // Se marca como usado ANTES de sumar el sello — si dos personas intentan
-  // usarlo al mismo tiempo, la segunda ya lo encuentra marcado.
-  const { data: claimed } = await supabase
-    .from('codes')
-    .update({ used: true, used_by: phone })
-    .eq('token', token)
-    .eq('used', false)
-    .select();
-
-  if (!claimed || claimed.length === 0) {
-    return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
-  }
-
-  const { data: existing } = await supabase
-    .from('customers').select('*').eq('phone', phone).single();
-
-  const newStamps = Math.min(MAX_STAMPS, (existing?.stamps || 0) + 1);
-
-  const { error: custErr } = await supabase
-    .from('customers')
-    .upsert({ phone, stamps: newStamps }, { onConflict: 'phone' });
-
-  if (custErr) return NextResponse.json({ error: 'No se pudo actualizar la tarjeta' }, { status: 500 });
-
-  return NextResponse.json({ ok: true, stamps: newStamps });
 }
