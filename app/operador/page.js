@@ -46,17 +46,30 @@ export default function OperadorPage() {
 
   async function generar(isAuto = false) {
     try {
+      setActionLoading(true);
+      setOpToast(null);
       const res = await fetch('/api/generar-codigo', { method: 'POST' });
       const data = await res.json();
+
+      if (!res.ok || !data.token) {
+        setOpToast({
+          msg: data.error || 'No se pudo generar el código. Revisa las variables de entorno en Vercel.',
+          kind: 'err',
+        });
+        return;
+      }
+
       setToken(data.token);
       setIssuedAt(Date.now());
       setSecondsLeft(90);
       if (!isAuto) {
-        setOpToast({ msg: 'Código QR generado. Listo para que el cliente lo escanee.', kind: '' });
+        setOpToast({ msg: '✅ Código QR generado. Listo para escanear.', kind: '' });
       }
     } catch (err) {
       console.error('Error al generar código:', err);
-      setOpToast({ msg: 'Error al conectar con la base de datos.', kind: 'err' });
+      setOpToast({ msg: 'Error de conexión con el servidor al generar código.', kind: 'err' });
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -176,7 +189,7 @@ export default function OperadorPage() {
         {token ? (
           <>
             <div className="qr-box">
-              <QRCodeSVG value={qrFullUrl} size={180} />
+              <QRCodeSVG value={qrFullUrl} size={180} bgColor="#FFFFFF" fgColor="#000000" level="M" />
             </div>
             <div className="token">{token}</div>
             <div className="timer">
