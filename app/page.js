@@ -5,6 +5,48 @@ import { Html5Qrcode } from 'html5-qrcode';
 
 const MAX_STAMPS = 6;
 
+function getStoredPhone() {
+  if (typeof window === 'undefined') return '';
+  try {
+    // 1. Intentar desde localStorage
+    const local = localStorage.getItem('carwash_phone');
+    if (local && local.replace(/\D/g, '').length >= 10) {
+      return local.replace(/\D/g, '');
+    }
+    // 2. Intentar desde cookies (útil en webviews de cámara en iOS/Android)
+    const match = document.cookie.match(/(?:^|;\s*)carwash_phone=([^;]+)/);
+    if (match && match[1] && match[1].replace(/\D/g, '').length >= 10) {
+      const clean = match[1].replace(/\D/g, '');
+      try { localStorage.setItem('carwash_phone', clean); } catch (e) {}
+      return clean;
+    }
+  } catch (err) {
+    console.error('Error al leer teléfono guardado:', err);
+  }
+  return '';
+}
+
+function setStoredPhone(num) {
+  if (typeof window === 'undefined') return;
+  const digits = num.replace(/\D/g, '');
+  try {
+    localStorage.setItem('carwash_phone', digits);
+  } catch (e) {}
+  try {
+    document.cookie = `carwash_phone=${digits}; max-age=63072000; path=/; SameSite=Lax`;
+  } catch (e) {}
+}
+
+function removeStoredPhone() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('carwash_phone');
+  } catch (e) {}
+  try {
+    document.cookie = `carwash_phone=; max-age=0; path=/; SameSite=Lax`;
+  } catch (e) {}
+}
+
 function ClientePageContent() {
   const searchParams = useSearchParams();
   const [phone, setPhone] = useState('');
@@ -23,18 +65,20 @@ function ClientePageContent() {
   useEffect(() => {
     setIsMounted(true);
     const codeFromUrl = searchParams.get('code');
-    const savedPhone = localStorage.getItem('carwash_phone');
+    const savedPhone = getStoredPhone();
+
+    if (savedPhone) {
+      setPhone(savedPhone);
+      fetchTarjeta(savedPhone);
+    }
 
     if (codeFromUrl) {
       const cleanCode = codeFromUrl.trim().toUpperCase();
       setPendingCode(cleanCode);
 
       if (savedPhone) {
-        setPhone(savedPhone);
-        fetchTarjeta(savedPhone);
         // Validar automáticamente si ya tenemos el teléfono guardado
         procesarCodigo(cleanCode, savedPhone);
-        // Limpiar el parámetro de la URL para evitar reprocesar al refrescar
         if (typeof window !== 'undefined') {
           window.history.replaceState({}, '', window.location.pathname);
         }
@@ -44,9 +88,6 @@ function ClientePageContent() {
           kind: 'warn',
         });
       }
-    } else if (savedPhone) {
-      setPhone(savedPhone);
-      fetchTarjeta(savedPhone);
     }
   }, [searchParams]);
 
@@ -71,13 +112,12 @@ function ClientePageContent() {
               }
               setIsScanning(false);
 
-              // Si el texto decodificado es una URL (ej. https://...?code=ABCD-1234), extraemos el token
               let tokenToProcess = decodedText.trim();
               if (tokenToProcess.includes('code=')) {
                 const parts = tokenToProcess.split('code=');
                 tokenToProcess = parts[1].split('&')[0];
               }
-              await procesarCodigo(tokenToProcess.toUpperCase(), phone);
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone || getStoredPhone());
             },
             () => {
               // Frame no decodificado, ignorar
@@ -126,7 +166,7 @@ function ClientePageContent() {
       setToast({ msg: 'Por favor ingresa los 10 dígitos de tu número celular.', kind: 'err' });
       return;
     }
-    localStorage.setItem('carwash_phone', digits);
+    setStoredPhone(digits);
     setPhone(digits);
     setToast(null);
 
@@ -148,7 +188,7 @@ function ClientePageContent() {
       qrScannerRef.current.stop().catch(() => {});
       setIsScanning(false);
     }
-    localStorage.removeItem('carwash_phone');
+    removeStoredPhone();
     setPhone('');
     setInputPhone('');
     setStamps(0);
