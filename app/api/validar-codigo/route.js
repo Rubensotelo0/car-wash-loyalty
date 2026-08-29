@@ -7,13 +7,18 @@ export async function POST(req) {
   try {
     const { token, phone, plate } = await req.json();
     if (!token || !phone || !plate) {
-      return NextResponse.json({ error: 'Faltan datos (código, teléfono o placa)' }, { status: 400 });
+      return NextResponse.json({ error: 'Faltan datos (código, teléfono o vehículo)' }, { status: 400 });
     }
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const cleanPlate = String(plate).trim().toUpperCase();
+    const cleanToken = String(token).trim().toUpperCase();
 
     const supabase = supabaseServer();
 
+    // 1. Validar el código QR / token
     const { data: code, error: codeErr } = await supabase
-      .from('codes').select('*').eq('token', token).single();
+      .from('codes').select('*').eq('token', cleanToken).single();
 
     if (codeErr || !code) {
       return NextResponse.json({ error: 'Código inválido o no encontrado' }, { status: 404 });
@@ -26,19 +31,11 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Código vencido (expiró tras 90s)' }, { status: 410 });
     }
 
-    // 1. Aseguramos que el cliente exista para no violar clave foránea
-    const { data: existing } = await supabase
-      .from('customers').select('*').eq('phone', phone).eq('plate', plate).single();
-
-    if (!existing) {
-      await supabase.from('customers').insert({ phone, plate, stamps: 0 });
-    }
-
-    // 2. Se marca como usado
+    // 2. Marcar el código como usado primero
     const { data: claimed, error: claimErr } = await supabase
       .from('codes')
-      .update({ used: true, used_by: phone })
-      .eq('token', token)
+      .update({ used: true, used_by: cleanPhone })
+      .eq('token', cleanToken)
       .eq('used', false)
       .select();
 
@@ -47,19 +44,23 @@ export async function POST(req) {
       return NextResponse.json({ error: claimErr?.message || 'Este código ya fue usado' }, { status: 409 });
     }
 
-    // 3. Sumar el sello a la tarjeta del carro
+    // 3. Consultar los sellos actuales del vehículo
+    const { data: existing } = await supabase
+      .from('customers').select('*').eq('phone', cleanPhone).eq('plate', cleanPlate).single();
+
     const newStamps = Math.min(MAX_STAMPS, (existing?.stamps || 0) + 1);
 
+    // 4. Guardar los sellos en la base de datos (onConflict sin espacios)
     const { error: custErr } = await supabase
       .from('customers')
-      .upsert({ phone, plate, stamps: newStamps }, { onConflict: 'phone, plate' });
+      .upsert({ phone: cleanPhone, plate: cleanPlate, stamps: newStamps }, { onConflict: 'phone,plate' });
 
     if (custErr) {
-      console.error(custErr);
-      return NextResponse.json({ error: 'No se pudo actualizar la tarjeta' }, { status: 500 });
+      console.error("Error al actualizar customer:", custErr);
+      return NextResponse.json({ error: 'No se pudo actualizar la tarjeta del vehículo' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, stamps: newStamps });
+    return NextResponse.json({ ok: true, stamps: newStamps, plate: cleanPlate });
   } catch (err) {
     console.error('Error en validar-codigo:', err);
     return NextResponse.json({ error: err.message || 'Error al validar el código' }, { status: 500 });

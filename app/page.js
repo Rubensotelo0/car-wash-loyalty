@@ -44,7 +44,7 @@ function ClientePageContent() {
   const [showAddCarModal, setShowAddCarModal] = useState(false);
 
   // Código pendiente por asignar a un carro
-  const [activeCodeToClaim, setActiveCodeToClaim] = useState(null); // 'ABCD-1234'
+  const [activeCodeToClaim, setActiveCodeToClaim] = useState(null);
   const [newCarForCode, setNewCarForCode] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -94,7 +94,6 @@ function ClientePageContent() {
                 tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
               }
               const cleanToken = tokenToProcess.toUpperCase();
-              // Activar modal de selección de carro
               setActiveCodeToClaim(cleanToken);
               setToast({ msg: `Código ${cleanToken} leído. Selecciona a qué vehículo asignarlo.`, kind: '' });
             },
@@ -119,7 +118,8 @@ function ClientePageContent() {
   async function fetchTarjetas(telefono) {
     try {
       setLoading(true);
-      const res = await fetch(`/api/tarjeta?phone=${telefono}&_t=${Date.now()}`);
+      const cleanPhone = String(telefono).replace(/\D/g, '');
+      const res = await fetch(`/api/tarjeta?phone=${cleanPhone}&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const carList = data.cars || [];
@@ -169,7 +169,7 @@ function ClientePageContent() {
     setShowAddCarModal(false);
   }
 
-  // Registrar un vehículo nuevo de forma independiente
+  // Registrar un vehículo nuevo
   async function handleCrearVehiculo(e) {
     e.preventDefault();
     if (!newPlate.trim()) return;
@@ -194,7 +194,8 @@ function ClientePageContent() {
         setSelectedPlate(upperPlate);
         setNewPlate('');
         setShowAddCarModal(false);
-        setToast({ msg: `✅ Vehículo "${upperPlate}" registrado.`, kind: '' });
+        setToast({ msg: `✅ Vehículo "${upperPlate}" registrado con éxito.`, kind: '' });
+        await fetchTarjetas(phone);
       } else {
         setToast({ msg: data.error || 'Error al agregar vehículo', kind: 'err' });
       }
@@ -205,9 +206,10 @@ function ClientePageContent() {
     }
   }
 
-  // Asignar el código pendiente a un carro específico
+  // Asignar el código a un vehículo específico
   async function handleAsignarSelloACarro(targetPlate) {
     if (!activeCodeToClaim || !phone || !targetPlate) return;
+    const cleanPlate = targetPlate.trim().toUpperCase();
 
     try {
       setLoading(true);
@@ -216,7 +218,7 @@ function ClientePageContent() {
       const res = await fetch('/api/validar-codigo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: activeCodeToClaim, phone, plate: targetPlate }),
+        body: JSON.stringify({ token: activeCodeToClaim, phone, plate: cleanPlate }),
       });
       const data = await res.json();
 
@@ -225,16 +227,27 @@ function ClientePageContent() {
         return;
       }
 
-      // Éxito: limpiar código pendiente
+      // 1. Limpiar estado de código
       setActiveCodeToClaim(null);
       setManualInputCode('');
       setNewCarForCode('');
-      setSelectedPlate(targetPlate);
+
+      // 2. ACTUALIZACIÓN VISUAL INMEDIATA EN PANTALLA
+      setSelectedPlate(cleanPlate);
+      setCars((prevCars) => {
+        const exists = prevCars.some((c) => c.plate === cleanPlate);
+        if (exists) {
+          return prevCars.map((c) =>
+            c.plate === cleanPlate ? { ...c, stamps: data.stamps } : c
+          );
+        }
+        return [...prevCars, { phone, plate: cleanPlate, stamps: data.stamps }];
+      });
 
       setToast({
         msg: data.stamps >= MAX_STAMPS
-          ? `🎉 ¡FELICIDADES! Tu "${targetPlate}" completó los 6 sellos. Tienes 1 lavado gratis.`
-          : `✅ ¡Sello sumado a "${targetPlate}"! Ahora tiene ${data.stamps} de ${MAX_STAMPS} sellos.`,
+          ? `🎉 ¡FELICIDADES! Tu vehículo "${cleanPlate}" completó los 6 sellos. Tienes 1 lavado gratis.`
+          : `✅ ¡Sello sumado a "${cleanPlate}"! Ahora tiene ${data.stamps} de ${MAX_STAMPS} sellos.`,
         kind: '',
       });
 
@@ -242,6 +255,7 @@ function ClientePageContent() {
         window.history.replaceState({}, '', window.location.pathname);
       }
 
+      // 3. Sincronizar en segundo plano
       await fetchTarjetas(phone);
     } catch (err) {
       console.error('Error al validar:', err);
@@ -251,7 +265,7 @@ function ClientePageContent() {
     }
   }
 
-  // Asignar código a un nuevo carro escrito en el modal
+  // Asignar código a un nuevo vehículo escrito en el formulario
   async function handleAsignarSelloANuevoCarro(e) {
     e.preventDefault();
     if (!newCarForCode.trim()) return;
@@ -333,50 +347,53 @@ function ClientePageContent() {
               </p>
 
               {/* Botones de selección de vehículos existentes */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: 14 }}>
-                {cars.map((car) => (
-                  <button
-                    key={car.plate}
-                    type="button"
-                    onClick={() => handleAsignarSelloACarro(car.plate)}
-                    disabled={loading || car.stamps >= MAX_STAMPS}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      background: 'var(--ink)',
-                      border: '1.5px solid var(--aqua)',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                      color: 'var(--foam)',
-                      textAlign: 'left',
-                      fontWeight: 700,
-                      fontSize: '14px',
-                      cursor: car.stamps >= MAX_STAMPS ? 'not-allowed' : 'pointer',
-                      opacity: car.stamps >= MAX_STAMPS ? 0.5 : 1,
-                      marginBottom: 0
-                    }}
-                  >
-                    <span>🚗 {car.plate}</span>
-                    <span style={{ color: 'var(--aqua)', fontSize: '13px' }}>
-                      {car.stamps >= MAX_STAMPS ? '¡Premio listo!' : `${car.stamps}/${MAX_STAMPS} sellos ➔`}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {cars.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: 14 }}>
+                  {cars.map((car) => (
+                    <button
+                      key={car.plate}
+                      type="button"
+                      onClick={() => handleAsignarSelloACarro(car.plate)}
+                      disabled={loading || car.stamps >= MAX_STAMPS}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'var(--ink)',
+                        border: '1.5px solid var(--aqua)',
+                        borderRadius: '12px',
+                        padding: '14px 16px',
+                        color: 'var(--foam)',
+                        textAlign: 'left',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        cursor: car.stamps >= MAX_STAMPS ? 'not-allowed' : 'pointer',
+                        opacity: car.stamps >= MAX_STAMPS ? 0.5 : 1,
+                        marginBottom: 0
+                      }}
+                    >
+                      <span>🚗 {car.plate}</span>
+                      <span style={{ color: 'var(--aqua)', fontSize: '13px' }}>
+                        {car.stamps >= MAX_STAMPS ? '¡Premio listo!' : `${car.stamps}/${MAX_STAMPS} sellos ➔`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Opción de asignar a un vehículo nuevo */}
-              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+              <div style={{ borderTop: cars.length > 0 ? '1px solid var(--line)' : 'none', paddingTop: cars.length > 0 ? 12 : 0 }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: 8, fontWeight: 600 }}>
-                  — O sumar a un nuevo vehículo: —
+                  {cars.length > 0 ? '— O sumar a un nuevo vehículo: —' : 'Escribe el nombre de tu vehículo para sumarle el sello:'}
                 </div>
                 <form onSubmit={handleAsignarSelloANuevoCarro} style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
-                    placeholder="Nombre (ej. Jetta, Moto, etc.)"
+                    placeholder="Nombre (ej. Jetta, Sentra, Moto...)"
                     value={newCarForCode}
                     onChange={(e) => setNewCarForCode(e.target.value.toUpperCase())}
                     style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                    autoFocus
                   />
                   <button
                     type="submit"
@@ -406,9 +423,9 @@ function ClientePageContent() {
             {cars.length > 0 ? (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: 8, fontWeight: 600 }}>
-                  Selecciona una tarjeta para ver sus sellos:
+                  Tus vehículos registrados:
                 </div>
-                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {cars.map((car) => {
                     const isSelected = (activeCar && activeCar.plate === car.plate);
                     return (
@@ -454,7 +471,7 @@ function ClientePageContent() {
                       marginBottom: 0
                     }}
                   >
-                    + Nuevo carro
+                    + Nuevo vehículo
                   </button>
                 </div>
               </div>

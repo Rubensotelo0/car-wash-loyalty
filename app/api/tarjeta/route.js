@@ -6,19 +6,19 @@ export const dynamic = 'force-dynamic';
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
+    const rawPhone = searchParams.get('phone');
     const plate = searchParams.get('plate');
-    if (!phone) return NextResponse.json({ error: 'Falta el teléfono' }, { status: 400 });
+    if (!rawPhone) return NextResponse.json({ error: 'Falta el teléfono' }, { status: 400 });
 
+    const phone = rawPhone.replace(/\D/g, '');
     const supabase = supabaseServer();
     
     if (plate) {
-      // Solicitar un carro específico
-      const { data } = await supabase.from('customers').select('*').eq('phone', phone).eq('plate', plate).single();
-      return NextResponse.json({ phone, plate, stamps: data?.stamps || 0 });
+      const cleanPlate = plate.trim().toUpperCase();
+      const { data } = await supabase.from('customers').select('*').eq('phone', phone).eq('plate', cleanPlate).single();
+      return NextResponse.json({ phone, plate: cleanPlate, stamps: data?.stamps || 0 });
     } else {
-      // Solicitar todos los carros asociados a este teléfono
-      const { data, error } = await supabase.from('customers').select('*').eq('phone', phone);
+      const { data, error } = await supabase.from('customers').select('*').eq('phone', phone).order('created_at', { ascending: true });
       if (error) throw error;
       return NextResponse.json({ phone, cars: data || [] });
     }
