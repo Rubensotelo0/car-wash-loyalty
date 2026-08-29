@@ -3,12 +3,11 @@ import { supabaseServer, MAX_STAMPS, TTL_MS } from '../../../lib/supabaseClient'
 
 export const dynamic = 'force-dynamic';
 
-// El cliente llama esto al escanear (o teclear) el código. Aquí vive toda la protección anti-fraude.
 export async function POST(req) {
   try {
-    const { token, phone } = await req.json();
-    if (!token || !phone) {
-      return NextResponse.json({ error: 'Falta el código o el teléfono' }, { status: 400 });
+    const { token, phone, plate } = await req.json();
+    if (!token || !phone || !plate) {
+      return NextResponse.json({ error: 'Faltan datos (código, teléfono o placa)' }, { status: 400 });
     }
 
     const supabase = supabaseServer();
@@ -27,19 +26,18 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Código vencido (expiró tras 90s)' }, { status: 410 });
     }
 
-    // 1. Aseguramos que el cliente exista en la base de datos para no violar la clave foránea
+    // 1. Aseguramos que el cliente exista para no violar clave foránea
     const { data: existing } = await supabase
-      .from('customers').select('*').eq('phone', phone).single();
+      .from('customers').select('*').eq('phone', phone).eq('plate', plate).single();
 
     if (!existing) {
-      await supabase.from('customers').insert({ phone, stamps: 0 });
+      await supabase.from('customers').insert({ phone, plate, stamps: 0 });
     }
 
-    // 2. Se marca como usado ANTES de sumar el sello — si dos personas intentan
-    // usarlo al mismo tiempo, la segunda ya lo encuentra marcado.
+    // 2. Se marca como usado
     const { data: claimed, error: claimErr } = await supabase
       .from('codes')
-      .update({ used: true, used_by: phone })
+      .update({ used: true, used_by: phone, used_by_plate: plate })
       .eq('token', token)
       .eq('used', false)
       .select();
@@ -48,14 +46,17 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
     }
 
-    // 3. Sumar el sello a la tarjeta del cliente
+    // 3. Sumar el sello a la tarjeta del carro
     const newStamps = Math.min(MAX_STAMPS, (existing?.stamps || 0) + 1);
 
     const { error: custErr } = await supabase
       .from('customers')
-      .upsert({ phone, stamps: newStamps }, { onConflict: 'phone' });
+      .upsert({ phone, plate, stamps: newStamps }, { onConflict: 'phone, plate' });
 
-    if (custErr) return NextResponse.json({ error: 'No se pudo actualizar la tarjeta' }, { status: 500 });
+    if (custErr) {
+      console.error(custErr);
+      return NextResponse.json({ error: 'No se pudo actualizar la tarjeta' }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true, stamps: newStamps });
   } catch (err) {

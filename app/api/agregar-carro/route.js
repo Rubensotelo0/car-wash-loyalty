@@ -8,10 +8,14 @@ export async function POST(req) {
   if (!phone || !plate) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
 
   const supabase = supabaseServer();
+  const { error } = await supabase.from('customers').insert({ phone, plate, stamps: 0 });
 
-  const { data } = await supabase.from('customers').select('*').eq('phone', phone).eq('plate', plate).single();
-  const newStamps = Math.max(0, (data?.stamps || 0) - 1);
+  if (error) {
+    if (error.code === '23505') {
+       return NextResponse.json({ error: 'La placa ya existe' }, { status: 409 });
+    }
+    return NextResponse.json({ error: 'Error al agregar carro' }, { status: 500 });
+  }
 
-  await supabase.from('customers').upsert({ phone, plate, stamps: newStamps }, { onConflict: 'phone, plate' });
-  return NextResponse.json({ ok: true, stamps: newStamps });
+  return NextResponse.json({ ok: true });
 }

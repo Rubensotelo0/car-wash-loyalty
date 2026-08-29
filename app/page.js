@@ -8,50 +8,40 @@ const MAX_STAMPS = 6;
 function getStoredPhone() {
   if (typeof window === 'undefined') return '';
   try {
-    // 1. Intentar desde localStorage
     const local = localStorage.getItem('carwash_phone');
-    if (local && local.replace(/\D/g, '').length >= 10) {
-      return local.replace(/\D/g, '');
-    }
-    // 2. Intentar desde cookies (útil en webviews de cámara en iOS/Android)
+    if (local && local.replace(/\D/g, '').length >= 10) return local.replace(/\D/g, '');
     const match = document.cookie.match(/(?:^|;\s*)carwash_phone=([^;]+)/);
     if (match && match[1] && match[1].replace(/\D/g, '').length >= 10) {
       const clean = match[1].replace(/\D/g, '');
       try { localStorage.setItem('carwash_phone', clean); } catch (e) {}
       return clean;
     }
-  } catch (err) {
-    console.error('Error al leer teléfono guardado:', err);
-  }
+  } catch (err) {}
   return '';
 }
 
 function setStoredPhone(num) {
   if (typeof window === 'undefined') return;
   const digits = num.replace(/\D/g, '');
-  try {
-    localStorage.setItem('carwash_phone', digits);
-  } catch (e) {}
-  try {
-    document.cookie = `carwash_phone=${digits}; max-age=63072000; path=/; SameSite=Lax`;
-  } catch (e) {}
+  try { localStorage.setItem('carwash_phone', digits); } catch (e) {}
+  try { document.cookie = `carwash_phone=${digits}; max-age=63072000; path=/; SameSite=Lax`; } catch (e) {}
 }
 
 function removeStoredPhone() {
   if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem('carwash_phone');
-  } catch (e) {}
-  try {
-    document.cookie = `carwash_phone=; max-age=0; path=/; SameSite=Lax`;
-  } catch (e) {}
+  try { localStorage.removeItem('carwash_phone'); } catch (e) {}
+  try { document.cookie = `carwash_phone=; max-age=0; path=/; SameSite=Lax`; } catch (e) {}
 }
 
 function ClientePageContent() {
   const searchParams = useSearchParams();
   const [phone, setPhone] = useState('');
   const [inputPhone, setInputPhone] = useState('');
-  const [stamps, setStamps] = useState(0);
+  
+  const [cars, setCars] = useState([]);
+  const [selectedPlate, setSelectedPlate] = useState('');
+  const [newPlate, setNewPlate] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [manualCode, setManualCode] = useState('');
@@ -61,7 +51,6 @@ function ClientePageContent() {
 
   const qrScannerRef = useRef(null);
 
-  // 1. Cargar teléfono guardado y procesar código desde la URL (?code=ABCD-1234)
   useEffect(() => {
     setIsMounted(true);
     const codeFromUrl = searchParams.get('code');
@@ -69,91 +58,74 @@ function ClientePageContent() {
 
     if (savedPhone) {
       setPhone(savedPhone);
-      fetchTarjeta(savedPhone);
+      fetchTarjetas(savedPhone);
     }
 
     if (codeFromUrl) {
       const cleanCode = codeFromUrl.trim().toUpperCase();
       setPendingCode(cleanCode);
-
-      if (savedPhone) {
-        // Validar automáticamente si ya tenemos el teléfono guardado
-        procesarCodigo(cleanCode, savedPhone);
-        if (typeof window !== 'undefined') {
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-      } else {
-        setToast({
-          msg: `🎉 ¡Código ${cleanCode} detectado! Ingresa tu número de celular para sumar tu sello.`,
-          kind: 'warn',
-        });
+      if (!savedPhone) {
+        setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número de celular para sumar tu sello.`, kind: 'warn' });
       }
     }
   }, [searchParams]);
 
-  // 2. Manejador del escáner QR de cámara
+  useEffect(() => {
+    // Si hay código pendiente y tenemos un carro seleccionado, lo procesamos.
+    if (pendingCode && phone && selectedPlate) {
+      const codeToRun = pendingCode;
+      setPendingCode(null);
+      procesarCodigo(codeToRun, phone, selectedPlate);
+      if (typeof window !== 'undefined') window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [pendingCode, phone, selectedPlate]);
+
   useEffect(() => {
     let html5QrCode = null;
-
-    if (isScanning) {
+    if (isScanning && selectedPlate) {
       const timer = setTimeout(async () => {
         try {
           html5QrCode = new Html5Qrcode('reader');
           qrScannerRef.current = html5QrCode;
-
           await html5QrCode.start(
             { facingMode: 'environment' },
             { fps: 10, qrbox: { width: 220, height: 220 } },
             async (decodedText) => {
-              try {
-                await html5QrCode.stop();
-              } catch (e) {
-                console.error('Error al detener escáner:', e);
-              }
+              try { await html5QrCode.stop(); } catch (e) {}
               setIsScanning(false);
-
               let tokenToProcess = decodedText.trim();
-              if (tokenToProcess.includes('code=')) {
-                const parts = tokenToProcess.split('code=');
-                tokenToProcess = parts[1].split('&')[0];
-              }
-              await procesarCodigo(tokenToProcess.toUpperCase(), phone || getStoredPhone());
+              if (tokenToProcess.includes('code=')) tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone, selectedPlate);
             },
-            () => {
-              // Frame no decodificado, ignorar
-            }
+            () => {}
           );
         } catch (err) {
-          console.error('No se pudo iniciar la cámara:', err);
-          setToast({
-            msg: 'No se pudo acceder a la cámara. Puedes escribir el código manualmente abajo.',
-            kind: 'warn',
-          });
+          setToast({ msg: 'No se pudo acceder a la cámara. Usa el código manual.', kind: 'warn' });
           setIsScanning(false);
         }
       }, 100);
-
       return () => {
         clearTimeout(timer);
         if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-          qrScannerRef.current
-            .stop()
-            .catch((e) => console.error('Error al limpiar escáner:', e));
+          qrScannerRef.current.stop().catch(() => {});
         }
       };
     }
-  }, [isScanning, phone]);
+  }, [isScanning, selectedPlate, phone]);
 
-  async function fetchTarjeta(telefono) {
+  async function fetchTarjetas(telefono) {
     try {
       setLoading(true);
       const res = await fetch(`/api/tarjeta?phone=${telefono}`);
       if (res.ok) {
         const data = await res.json();
-        setStamps(data.stamps || 0);
+        setCars(data.cars || []);
+        if (data.cars && data.cars.length > 0) {
+          if (!selectedPlate) setSelectedPlate(data.cars[0].plate);
+        }
       }
     } catch (err) {
-      console.error('Error al obtener tarjeta:', err);
+      console.error('Error al obtener tarjetas:', err);
     } finally {
       setLoading(false);
     }
@@ -163,24 +135,12 @@ function ClientePageContent() {
     e.preventDefault();
     const digits = inputPhone.replace(/\D/g, '');
     if (digits.length < 10) {
-      setToast({ msg: 'Por favor ingresa los 10 dígitos de tu número celular.', kind: 'err' });
-      return;
+      setToast({ msg: 'Por favor ingresa los 10 dígitos de tu celular.', kind: 'err' }); return;
     }
     setStoredPhone(digits);
     setPhone(digits);
     setToast(null);
-
-    // Si había un código pendiente que vino por QR / URL, lo validamos de inmediato
-    if (pendingCode) {
-      const codeToRun = pendingCode;
-      setPendingCode(null);
-      await procesarCodigo(codeToRun, digits);
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    } else {
-      fetchTarjeta(digits);
-    }
+    fetchTarjetas(digits);
   }
 
   function handleCambiarTelefono() {
@@ -191,48 +151,60 @@ function ClientePageContent() {
     removeStoredPhone();
     setPhone('');
     setInputPhone('');
-    setStamps(0);
+    setCars([]);
+    setSelectedPlate('');
     setToast(null);
     setManualCode('');
     setPendingCode(null);
   }
 
-  async function procesarCodigo(token, targetPhone) {
-    const activePhone = targetPhone || phone;
-    if (!token) return;
-    if (!activePhone) {
-      setToast({ msg: 'Ingresa tu número celular antes de registrar el código.', kind: 'warn' });
-      return;
+  async function handleAgregarCarro(e) {
+    e.preventDefault();
+    if (!newPlate.trim()) return;
+    const upperPlate = newPlate.trim().toUpperCase();
+    try {
+      setLoading(true);
+      const res = await fetch('/api/agregar-carro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, plate: upperPlate })
+      });
+      if (res.ok) {
+        await fetchTarjetas(phone);
+        setSelectedPlate(upperPlate);
+        setNewPlate('');
+        setToast({ msg: `✅ Placa ${upperPlate} agregada con éxito.`, kind: '' });
+      } else {
+        const data = await res.json();
+        setToast({ msg: data.error || 'Error al agregar placa', kind: 'err' });
+      }
+    } catch (err) {
+      setToast({ msg: 'Error de conexión', kind: 'err' });
+    } finally {
+      setLoading(false);
     }
+  }
 
+  async function procesarCodigo(token, targetPhone, targetPlate) {
+    if (!token || !targetPhone || !targetPlate) return;
     try {
       setLoading(true);
       setToast(null);
-
       const res = await fetch('/api/validar-codigo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, phone: activePhone }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, phone: targetPhone, plate: targetPlate }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
-        setToast({ msg: data.error || 'No se pudo validar el código.', kind: 'err' });
-        return;
+        setToast({ msg: data.error || 'No se pudo validar el código.', kind: 'err' }); return;
       }
-
-      setStamps(data.stamps);
       setManualCode('');
       setToast({
-        msg: data.stamps >= MAX_STAMPS
-          ? '🎉 ¡FELICIDADES! Has completado tu tarjeta. Tienes 1 lavado gratis disponible.'
-          : `✅ ¡Sello registrado con éxito! Llevas ${data.stamps} de ${MAX_STAMPS} sellos.`,
+        msg: data.stamps >= MAX_STAMPS ? '🎉 ¡FELICIDADES! Tarjeta completa. 1 lavado gratis.' : `✅ ¡Sello registrado para ${targetPlate}! Llevas ${data.stamps}/${MAX_STAMPS}.`,
         kind: '',
       });
+      fetchTarjetas(targetPhone);
     } catch (err) {
-      console.error('Error al validar código:', err);
-      setToast({ msg: 'Error al conectar con el servidor. Intenta de nuevo.', kind: 'err' });
+      setToast({ msg: 'Error al conectar con el servidor.', kind: 'err' });
     } finally {
       setLoading(false);
     }
@@ -240,11 +212,13 @@ function ClientePageContent() {
 
   function handleManualSubmit(e) {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    procesarCodigo(manualCode.trim().toUpperCase(), phone);
+    if (!manualCode.trim() || !selectedPlate) return;
+    procesarCodigo(manualCode.trim().toUpperCase(), phone, selectedPlate);
   }
 
   if (!isMounted) return null;
+
+  const activeCar = cars.find(c => c.plate === selectedPlate);
 
   return (
     <div className="wrap">
@@ -254,139 +228,117 @@ function ClientePageContent() {
       {!phone ? (
         <div className="card">
           <div className="label">Ingresa tu número de celular</div>
-          <p className="sub" style={{ marginBottom: 14 }}>
-            Tu número es tu tarjeta digital. No necesitas contraseña ni descargar apps.
-          </p>
           <form onSubmit={handleGuardarTelefono}>
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="Ej. 55 1234 5678"
-              value={inputPhone}
-              onChange={(e) => setInputPhone(e.target.value)}
-              autoFocus
-            />
+            <input type="tel" inputMode="numeric" placeholder="Ej. 55 1234 5678" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} autoFocus />
             <button type="submit" className="btn-primary" disabled={loading}>
-              {pendingCode ? 'Guardar y reclamar mi sello' : 'Ver mi tarjeta'}
+              {pendingCode ? 'Guardar y continuar' : 'Ver mis tarjetas'}
             </button>
           </form>
           {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
         </div>
       ) : (
         <>
-          {/* Tarjeta de Lealtad */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div className="label" style={{ margin: 0 }}>Tu Tarjeta</div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <a className="link" onClick={() => fetchTarjeta(phone)}>
-                  🔄 Actualizar
-                </a>
-                <a className="link" onClick={handleCambiarTelefono}>
-                  Cambiar número ({phone.slice(-4)})
-                </a>
-              </div>
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="label" style={{ margin: 0 }}>Mis Carros (Cel: {phone.slice(-4)})</div>
+              <a className="link" onClick={handleCambiarTelefono}>Cambiar número</a>
             </div>
 
-            <div className="drops">
-              {Array.from({ length: MAX_STAMPS }).map((_, i) => (
-                <svg
-                  key={i}
-                  className={`drop ${i < stamps ? 'filled' : ''}`}
-                  viewBox="0 0 24 28"
+            {cars.length > 0 ? (
+              <div style={{ marginTop: '14px' }}>
+                <select 
+                  value={selectedPlate} 
+                  onChange={(e) => { setSelectedPlate(e.target.value); setToast(null); }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'var(--ink)', border: '1px solid var(--line)', color: 'white', marginBottom: '12px' }}
                 >
-                  <path
-                    d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
-                    fill={i < stamps ? 'var(--aqua)' : 'none'}
-                    stroke={i < stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'}
-                    strokeWidth="1.6"
-                  />
-                </svg>
-              ))}
-            </div>
-
-            <p className="sub" style={{ margin: '8px 0 14px' }}>
-              {stamps}/{MAX_STAMPS} sellos acumulados
-            </p>
-
-            {stamps >= MAX_STAMPS ? (
-              <div className="reward">
-                🎉 <strong>¡LAVADO GRATIS DISPONIBLE!</strong>
-                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--amber)', opacity: 0.95 }}>
-                  Muéstrale esta pantalla al operador para canjear tu premio en este lavado.
-                </p>
+                  {cars.map(c => (
+                    <option key={c.plate} value={c.plate}>Carro: {c.plate} ({c.stamps} sellos)</option>
+                  ))}
+                </select>
               </div>
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--text-dim)', margin: 0 }}>
-                Te faltan <strong>{MAX_STAMPS - stamps}</strong> {MAX_STAMPS - stamps === 1 ? 'lavado' : 'lavados'} para tu lavado gratis.
-              </p>
-            )}
-          </div>
-
-          {/* Registrar Sello */}
-          <div className="card">
-            <div className="label">Registrar nuevo lavado</div>
-            <p className="sub" style={{ marginBottom: 14 }}>
-              Escanea el código QR que te muestre el operador o ingresa el código.
-            </p>
-
-            {isScanning ? (
-              <div style={{ marginBottom: 14 }}>
-                <div
-                  id="reader"
-                  style={{
-                    width: '100%',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    background: 'var(--ink)',
-                    marginBottom: 10,
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => setIsScanning(false)}
-                >
-                  Cerrar cámara
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  setToast(null);
-                  setIsScanning(true);
-                }}
-                disabled={loading}
-              >
-                📷 Escanear código QR
-              </button>
+              <p className="sub" style={{ marginTop: '10px' }}>No tienes carros registrados.</p>
             )}
 
-            <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
-              — O ingresa el código manual —
-            </div>
-
-            <form onSubmit={handleManualSubmit}>
-              <input
-                type="text"
-                placeholder="Ej. ABCD-1234"
-                value={manualCode}
-                onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                className="btn-ghost"
-                disabled={loading || !manualCode.trim()}
-              >
-                {loading ? 'Validando...' : 'Registrar sello manual'}
-              </button>
+            <form onSubmit={handleAgregarCarro} style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <input type="text" placeholder="Nueva Placa (Ej. ABC-123)" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase', padding: '10px' }} />
+              <button type="submit" className="btn-ghost" disabled={loading || !newPlate.trim()} style={{ width: 'auto', padding: '10px 16px' }}>Agregar</button>
             </form>
-
-            {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
           </div>
+
+          {activeCar && (
+            <>
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="label" style={{ margin: 0 }}>Sellos de {activeCar.plate}</div>
+                  <a className="link" onClick={() => fetchTarjetas(phone)}>🔄 Actualizar</a>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', margin: '18px 0' }}>
+                  {Array.from({ length: MAX_STAMPS }).map((_, i) => {
+                    const isFilled = i < Number(activeCar.stamps);
+                    const isRewardSlot = i === MAX_STAMPS - 1;
+                    return (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '14px 8px', borderRadius: '14px', background: isFilled ? 'linear-gradient(180deg, rgba(47,199,255,0.22), rgba(14,143,214,0.12))' : 'rgba(255,255,255,0.03)', border: isFilled ? '1.5px solid #2FC7FF' : '1.5px dashed rgba(143,226,255,0.25)', boxShadow: isFilled ? '0 0 16px rgba(47,199,255,0.25)' : 'none', transition: 'all 0.3s ease' }}>
+                        <svg viewBox="0 0 24 28" style={{ width: '32px', height: '38px', marginBottom: '6px', filter: isFilled ? 'drop-shadow(0 2px 6px rgba(47,199,255,0.4))' : 'none' }}>
+                          <path d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z" fill={isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'transparent'} stroke={isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'rgba(143,226,255,0.4)'} strokeWidth="1.8" />
+                        </svg>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'rgba(234,246,255,0.4)' }}>
+                          {isFilled ? '✓ SELLO ' + (i + 1) : (isRewardSlot ? '🎁 GRATIS' : 'LAVADO ' + (i + 1))}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="sub" style={{ margin: '8px 0 14px' }}>
+                  {activeCar.stamps}/{MAX_STAMPS} sellos acumulados
+                </p>
+
+                {activeCar.stamps >= MAX_STAMPS ? (
+                  <div className="reward">
+                    🎉 <strong>¡LAVADO GRATIS DISPONIBLE!</strong>
+                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--amber)', opacity: 0.95 }}>
+                      Muéstrale esta pantalla al operador para canjear tu premio.
+                    </p>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '13px', color: 'var(--text-dim)', margin: 0 }}>
+                    Te faltan <strong>{MAX_STAMPS - activeCar.stamps}</strong> lavados para tu premio.
+                  </p>
+                )}
+              </div>
+
+              {activeCar.stamps < MAX_STAMPS && (
+                <div className="card">
+                  <div className="label">Registrar lavado para {activeCar.plate}</div>
+                  
+                  {isScanning ? (
+                    <div style={{ marginBottom: 14 }}>
+                      <div id="reader" style={{ width: '100%', borderRadius: '12px', overflow: 'hidden', background: 'var(--ink)', marginBottom: 10 }} />
+                      <button type="button" className="btn-ghost" onClick={() => setIsScanning(false)}>Cerrar cámara</button>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn-primary" onClick={() => { setToast(null); setIsScanning(true); }} disabled={loading}>
+                      📷 Escanear código QR
+                    </button>
+                  )}
+
+                  <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
+                    — O ingresa el código manual —
+                  </div>
+
+                  <form onSubmit={handleManualSubmit}>
+                    <input type="text" placeholder="Ej. ABCD-1234" value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} disabled={loading} />
+                    <button type="submit" className="btn-ghost" disabled={loading || !manualCode.trim()}>
+                      Registrar sello manual
+                    </button>
+                  </form>
+                </div>
+              )}
+            </>
+          )}
+          {toast && <div className={`toast ${toast.kind}`} style={{ marginTop: '16px' }}>{toast.msg}</div>}
         </>
       )}
     </div>
@@ -395,7 +347,7 @@ function ClientePageContent() {
 
 export default function ClientePage() {
   return (
-    <Suspense fallback={<div className="wrap"><p className="sub">Cargando tarjeta...</p></div>}>
+    <Suspense fallback={<div className="wrap"><p className="sub">Cargando...</p></div>}>
       <ClientePageContent />
     </Suspense>
   );
