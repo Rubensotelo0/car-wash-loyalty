@@ -23,7 +23,7 @@ export default function PaquetesPage() {
         <div className="brand-badge">
           <span>🏠</span> Servicio a Domicilio <span>✨</span>
         </div>
-        <h1>La Carpita · Detailing</h1>
+        <h1>Car Wash La Carpita</h1>
         <p className="sub" style={{ margin: '4px 0 16px' }}>
           Todo lo que tu auto necesita, en un solo servicio. Dejamos tu auto como nuevo.
         </p>
@@ -214,8 +214,79 @@ export default function PaquetesPage() {
         </ul>
       </div>
 
+      {/* SECCIÓN PROMOCIONAL: RESULTADOS REALES Y PRODUCTOS A DOMICILIO */}
+      <div style={{ marginTop: 28, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 4 }}>
+          <span style={{ fontSize: '20px' }}>📸</span>
+          <h2 style={{ fontSize: '19px', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+            Resultados Reales a Domicilio
+          </h2>
+        </div>
+        <p className="sub" style={{ margin: '0 0 18px', fontSize: '13px' }}>
+          Calidad profesional directamente en la comodidad de tu cochera.
+        </p>
+
+        <div className="promo-gallery">
+          {/* Foto 1: Espuma Activa */}
+          <div className="promo-card">
+            <div className="promo-img-wrapper">
+              <span className="promo-badge">Técnica Profesional ⭐</span>
+              <img
+                src="/images/espuma.jpg"
+                alt="Espuma activa a domicilio en camioneta"
+                className="promo-img"
+              />
+            </div>
+            <div className="promo-content">
+              <div className="promo-title">Espuma Activa de Alta Densidad</div>
+              <p className="promo-desc">
+                Pre-lavado sin contacto que encapsula la suciedad antes de tocar la carrocería, garantizando cero rayones o swirls en tu pintura.
+              </p>
+            </div>
+          </div>
+
+          {/* Foto 2: Químicos Profesionales */}
+          <div className="promo-card">
+            <div className="promo-img-wrapper">
+              <span className="promo-badge" style={{ color: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
+                Químicos Premium 💎
+              </span>
+              <img
+                src="/images/productos.jpg"
+                alt="Productos de limpieza automotriz profesional Vonixx y Vintex"
+                className="promo-img"
+              />
+            </div>
+            <div className="promo-content">
+              <div className="promo-title">Línea de Gama Alta Vonixx y Vintex</div>
+              <p className="promo-desc">
+                Cuidamos tu auto con desengrasantes especializados (Removex), descontaminantes de rines (Alumax), restauradores de plásticos (Restaurax) y abrillantadores Makker.
+              </p>
+            </div>
+          </div>
+
+          {/* Foto 3: Acabado Suburban */}
+          <div className="promo-card">
+            <div className="promo-img-wrapper">
+              <span className="promo-badge">Acabado Espejo ✨</span>
+              <img
+                src="/images/acabado.jpg"
+                alt="Camioneta Suburban blanca con acabado brillante"
+                className="promo-img"
+              />
+            </div>
+            <div className="promo-content">
+              <div className="promo-title">Brillo y Protección Impecable</div>
+              <p className="promo-desc">
+                Secado minucioso con toallas de microfibra de alta absorción y selladores que realzan las líneas y el brillo natural de tu vehículo.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Botón inferior de retorno a tarjeta */}
-      <div style={{ textAlign: 'center', marginTop: 12 }}>
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
         <button
           type="button"
           className="btn-primary"
