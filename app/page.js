@@ -41,6 +41,7 @@ function ClientePageContent() {
   const [cars, setCars] = useState([]);
   const [selectedPlate, setSelectedPlate] = useState('');
   const [newPlate, setNewPlate] = useState('');
+  const [showAddCar, setShowAddCar] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -51,6 +52,7 @@ function ClientePageContent() {
 
   const qrScannerRef = useRef(null);
 
+  // 1. Cargar teléfono guardado y procesar código desde la URL (?code=ABCD)
   useEffect(() => {
     setIsMounted(true);
     const codeFromUrl = searchParams.get('code');
@@ -65,24 +67,27 @@ function ClientePageContent() {
       const cleanCode = codeFromUrl.trim().toUpperCase();
       setPendingCode(cleanCode);
       if (!savedPhone) {
-        setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número de celular para sumar tu sello.`, kind: 'warn' });
+        setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número de celular para reclamar tu sello.`, kind: 'warn' });
       }
     }
   }, [searchParams]);
 
+  // 2. Si hay código pendiente y ya tenemos teléfono y carro seleccionado, procesar
   useEffect(() => {
-    // Si hay código pendiente y tenemos un carro seleccionado, lo procesamos.
     if (pendingCode && phone && selectedPlate) {
       const codeToRun = pendingCode;
       setPendingCode(null);
       procesarCodigo(codeToRun, phone, selectedPlate);
-      if (typeof window !== 'undefined') window.history.replaceState({}, '', window.location.pathname);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     }
   }, [pendingCode, phone, selectedPlate]);
 
+  // 3. Manejo de escáner QR
   useEffect(() => {
     let html5QrCode = null;
-    if (isScanning && selectedPlate) {
+    if (isScanning) {
       const timer = setTimeout(async () => {
         try {
           html5QrCode = new Html5Qrcode('reader');
@@ -94,16 +99,26 @@ function ClientePageContent() {
               try { await html5QrCode.stop(); } catch (e) {}
               setIsScanning(false);
               let tokenToProcess = decodedText.trim();
-              if (tokenToProcess.includes('code=')) tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
-              await procesarCodigo(tokenToProcess.toUpperCase(), phone, selectedPlate);
+              if (tokenToProcess.includes('code=')) {
+                tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
+              }
+              const activeCarPlate = selectedPlate || (cars.length > 0 ? cars[0].plate : '');
+              if (!activeCarPlate) {
+                setPendingCode(tokenToProcess.toUpperCase());
+                setToast({ msg: '⚠️ Por favor registra el nombre de tu vehículo para asignarle el sello.', kind: 'warn' });
+                return;
+              }
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone, activeCarPlate);
             },
             () => {}
           );
         } catch (err) {
-          setToast({ msg: 'No se pudo acceder a la cámara. Usa el código manual.', kind: 'warn' });
+          console.error('Error cámara:', err);
+          setToast({ msg: 'No se pudo abrir la cámara. Puedes escribir el código manualmente abajo.', kind: 'warn' });
           setIsScanning(false);
         }
       }, 100);
+
       return () => {
         clearTimeout(timer);
         if (qrScannerRef.current && qrScannerRef.current.isScanning) {
@@ -111,7 +126,7 @@ function ClientePageContent() {
         }
       };
     }
-  }, [isScanning, selectedPlate, phone]);
+  }, [isScanning, selectedPlate, cars, phone]);
 
   async function fetchTarjetas(telefono) {
     try {
@@ -119,9 +134,15 @@ function ClientePageContent() {
       const res = await fetch(`/api/tarjeta?phone=${telefono}&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setCars(data.cars || []);
-        if (data.cars && data.cars.length > 0) {
-          if (!selectedPlate) setSelectedPlate(data.cars[0].plate);
+        const carList = data.cars || [];
+        setCars(carList);
+        if (carList.length > 0) {
+          setSelectedPlate((prev) => {
+            const exists = carList.find((c) => c.plate === prev);
+            return exists ? prev : carList[0].plate;
+          });
+        } else {
+          setSelectedPlate('');
         }
       }
     } catch (err) {
@@ -135,12 +156,13 @@ function ClientePageContent() {
     e.preventDefault();
     const digits = inputPhone.replace(/\D/g, '');
     if (digits.length < 10) {
-      setToast({ msg: 'Por favor ingresa los 10 dígitos de tu celular.', kind: 'err' }); return;
+      setToast({ msg: 'Por favor ingresa los 10 dígitos de tu celular.', kind: 'err' });
+      return;
     }
     setStoredPhone(digits);
     setPhone(digits);
     setToast(null);
-    fetchTarjetas(digits);
+    await fetchTarjetas(digits);
   }
 
   function handleCambiarTelefono() {
@@ -156,54 +178,91 @@ function ClientePageContent() {
     setToast(null);
     setManualCode('');
     setPendingCode(null);
+    setShowAddCar(false);
   }
 
   async function handleAgregarCarro(e) {
     e.preventDefault();
     if (!newPlate.trim()) return;
     const upperPlate = newPlate.trim().toUpperCase();
+
+    if (cars.find((c) => c.plate === upperPlate)) {
+      setToast({ msg: 'Ya tienes registrado un vehículo con ese nombre.', kind: 'warn' });
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await fetch('/api/agregar-carro', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, plate: upperPlate })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, plate: upperPlate }),
       });
+      const data = await res.json();
       if (res.ok) {
-        await fetchTarjetas(phone);
+        const updated = [...cars, { phone, plate: upperPlate, stamps: 0 }];
+        setCars(updated);
         setSelectedPlate(upperPlate);
         setNewPlate('');
-        setToast({ msg: `✅ Vehículo ${upperPlate} agregado con éxito.`, kind: '' });
+        setShowAddCar(false);
+        setToast({ msg: `✅ Vehículo "${upperPlate}" agregado con éxito.`, kind: '' });
+
+        // Si había código pendiente, procesarlo ahora
+        if (pendingCode) {
+          const codeToRun = pendingCode;
+          setPendingCode(null);
+          await procesarCodigo(codeToRun, phone, upperPlate);
+        }
       } else {
-        const data = await res.json();
-        setToast({ msg: data.error || 'Error al agregar placa', kind: 'err' });
+        setToast({ msg: data.error || 'Error al agregar vehículo', kind: 'err' });
       }
     } catch (err) {
-      setToast({ msg: 'Error de conexión', kind: 'err' });
+      setToast({ msg: 'Error de conexión con el servidor.', kind: 'err' });
     } finally {
       setLoading(false);
     }
   }
 
   async function procesarCodigo(token, targetPhone, targetPlate) {
-    if (!token || !targetPhone || !targetPlate) return;
+    if (!token) return;
+    const activePhone = targetPhone || phone;
+    const activePlate = targetPlate || selectedPlate;
+
+    if (!activePhone) {
+      setToast({ msg: 'Ingresa tu número celular antes de registrar el código.', kind: 'warn' });
+      return;
+    }
+
+    if (!activePlate) {
+      setPendingCode(token);
+      setToast({ msg: '⚠️ Registra el nombre de tu vehículo primero para sumar tu sello.', kind: 'warn' });
+      return;
+    }
+
     try {
       setLoading(true);
       setToast(null);
       const res = await fetch('/api/validar-codigo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, phone: targetPhone, plate: targetPlate }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, phone: activePhone, plate: activePlate }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setToast({ msg: data.error || 'No se pudo validar el código.', kind: 'err' }); return;
+        setToast({ msg: data.error || 'No se pudo validar el código.', kind: 'err' });
+        return;
       }
+
       setManualCode('');
       setToast({
-        msg: data.stamps >= MAX_STAMPS ? '🎉 ¡FELICIDADES! Tarjeta completa. 1 lavado gratis.' : `✅ ¡Sello registrado para ${targetPlate}! Llevas ${data.stamps}/${MAX_STAMPS}.`,
+        msg: data.stamps >= MAX_STAMPS
+          ? `🎉 ¡FELICIDADES! Tu vehículo "${activePlate}" completó la tarjeta. Tienes 1 lavado gratis.`
+          : `✅ ¡Sello registrado para "${activePlate}"! Llevas ${data.stamps} de ${MAX_STAMPS} sellos.`,
         kind: '',
       });
-      fetchTarjetas(targetPhone);
+      fetchTarjetas(activePhone);
     } catch (err) {
+      console.error('Error al validar código:', err);
       setToast({ msg: 'Error al conectar con el servidor.', kind: 'err' });
     } finally {
       setLoading(false);
@@ -212,13 +271,20 @@ function ClientePageContent() {
 
   function handleManualSubmit(e) {
     e.preventDefault();
-    if (!manualCode.trim() || !selectedPlate) return;
-    procesarCodigo(manualCode.trim().toUpperCase(), phone, selectedPlate);
+    if (!manualCode.trim()) return;
+    const activePlate = selectedPlate || (cars.length > 0 ? cars[0].plate : '');
+    if (!activePlate) {
+      setPendingCode(manualCode.trim().toUpperCase());
+      setToast({ msg: '⚠️ Registra el nombre de tu vehículo arriba para sumarle el sello.', kind: 'warn' });
+      return;
+    }
+    procesarCodigo(manualCode.trim().toUpperCase(), phone, activePlate);
   }
 
   if (!isMounted) return null;
 
-  const activeCar = cars.find(c => c.plate === selectedPlate);
+  const activeCar = cars.find((c) => c.plate === selectedPlate) || (cars.length > 0 ? cars[0] : null);
+  const stamps = activeCar ? activeCar.stamps : 0;
 
   return (
     <div className="wrap">
@@ -228,121 +294,222 @@ function ClientePageContent() {
       {!phone ? (
         <div className="card">
           <div className="label">Ingresa tu número de celular</div>
+          <p className="sub" style={{ marginBottom: 14 }}>
+            Tu número es tu tarjeta digital. No necesitas contraseña ni descargar apps.
+          </p>
           <form onSubmit={handleGuardarTelefono}>
-            <input type="tel" inputMode="numeric" placeholder="Ej. 55 1234 5678" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} autoFocus />
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="Ej. 55 1234 5678"
+              value={inputPhone}
+              onChange={(e) => setInputPhone(e.target.value)}
+              autoFocus
+            />
             <button type="submit" className="btn-primary" disabled={loading}>
-              {pendingCode ? 'Guardar y continuar' : 'Ver mis tarjetas'}
+              {pendingCode ? 'Guardar y reclamar mi sello' : 'Ver mi tarjeta'}
             </button>
           </form>
           {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
         </div>
       ) : (
         <>
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="label" style={{ margin: 0 }}>Mis Carros (Cel: {phone.slice(-4)})</div>
-              <a className="link" onClick={handleCambiarTelefono}>Cambiar número</a>
+          {/* Tarjeta de Lealtad */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="label" style={{ margin: 0 }}>Tu Tarjeta</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a className="link" onClick={() => fetchTarjetas(phone)}>🔄 Actualizar</a>
+                <a className="link" onClick={handleCambiarTelefono}>Cambiar número ({phone.slice(-4)})</a>
+              </div>
             </div>
 
+            {/* Selector de vehículo o registro de primer vehículo */}
             {cars.length > 0 ? (
-              <div style={{ marginTop: '14px' }}>
-                <select 
-                  value={selectedPlate} 
-                  onChange={(e) => { setSelectedPlate(e.target.value); setToast(null); }}
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'var(--ink)', border: '1px solid var(--line)', color: 'white', marginBottom: '12px' }}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 600 }}>Vehículo actual:</span>
+                  <a
+                    className="link"
+                    style={{ fontSize: '11.5px' }}
+                    onClick={() => setShowAddCar(!showAddCar)}
+                  >
+                    {showAddCar ? '✕ Cancelar' : '+ Agregar otro vehículo'}
+                  </a>
+                </div>
+
+                <select
+                  value={activeCar ? activeCar.plate : ''}
+                  onChange={(e) => {
+                    setSelectedPlate(e.target.value);
+                    setToast(null);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: 'var(--ink)',
+                    border: '1px solid var(--aqua)',
+                    color: 'var(--foam)',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    marginBottom: showAddCar ? '10px' : '0px'
+                  }}
                 >
-                  {cars.map(c => (
-                    <option key={c.plate} value={c.plate}>Vehículo: {c.plate} ({c.stamps} sellos)</option>
+                  {cars.map((c) => (
+                    <option key={c.plate} value={c.plate}>
+                      🚗 {c.plate} ({c.stamps}/{MAX_STAMPS} sellos)
+                    </option>
                   ))}
                 </select>
-              </div>
-            ) : (
-              <p className="sub" style={{ marginTop: '10px' }}>No tienes vehículos registrados.</p>
-            )}
 
-            <form onSubmit={handleAgregarCarro} style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              <input type="text" placeholder="Nombre (Ej. Jetta Blanco)" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase', padding: '10px' }} />
-              <button type="submit" className="btn-ghost" disabled={loading || !newPlate.trim()} style={{ width: 'auto', padding: '10px 16px' }}>Agregar</button>
-            </form>
-          </div>
-
-          {activeCar ? (
-            <>
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="label" style={{ margin: 0 }}>Sellos de {activeCar.plate}</div>
-                  <a className="link" onClick={() => fetchTarjetas(phone)}>🔄 Actualizar</a>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', margin: '18px 0' }}>
-                  {Array.from({ length: MAX_STAMPS }).map((_, i) => {
-                    const isFilled = i < Number(activeCar.stamps);
-                    const isRewardSlot = i === MAX_STAMPS - 1;
-                    return (
-                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '14px 8px', borderRadius: '14px', background: isFilled ? 'linear-gradient(180deg, rgba(47,199,255,0.22), rgba(14,143,214,0.12))' : 'rgba(255,255,255,0.03)', border: isFilled ? '1.5px solid #2FC7FF' : '1.5px dashed rgba(143,226,255,0.25)', boxShadow: isFilled ? '0 0 16px rgba(47,199,255,0.25)' : 'none', transition: 'all 0.3s ease' }}>
-                        <svg viewBox="0 0 24 28" style={{ width: '32px', height: '38px', marginBottom: '6px', filter: isFilled ? 'drop-shadow(0 2px 6px rgba(47,199,255,0.4))' : 'none' }}>
-                          <path d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z" fill={isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'transparent'} stroke={isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'rgba(143,226,255,0.4)'} strokeWidth="1.8" />
-                        </svg>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: isFilled ? (isRewardSlot ? '#FFC24D' : '#2FC7FF') : 'rgba(234,246,255,0.4)' }}>
-                          {isFilled ? '✓ SELLO ' + (i + 1) : (isRewardSlot ? '🎁 GRATIS' : 'LAVADO ' + (i + 1))}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <p className="sub" style={{ margin: '8px 0 14px' }}>
-                  {activeCar.stamps}/{MAX_STAMPS} sellos acumulados
-                </p>
-
-                {activeCar.stamps >= MAX_STAMPS ? (
-                  <div className="reward">
-                    🎉 <strong>¡LAVADO GRATIS DISPONIBLE!</strong>
-                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--amber)', opacity: 0.95 }}>
-                      Muéstrale esta pantalla al operador para canjear tu premio.
-                    </p>
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '13px', color: 'var(--text-dim)', margin: 0 }}>
-                    Te faltan <strong>{MAX_STAMPS - activeCar.stamps}</strong> lavados para tu premio.
-                  </p>
+                {showAddCar && (
+                  <form onSubmit={handleAgregarCarro} style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <input
+                      type="text"
+                      placeholder="Nombre (Ej. Jetta Blanco, Moto, etc.)"
+                      value={newPlate}
+                      onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
+                      style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={loading || !newPlate.trim()}
+                      style={{ width: 'auto', padding: '10px 16px', marginBottom: 0 }}
+                    >
+                      Guardar
+                    </button>
+                  </form>
                 )}
               </div>
-            </>
-          ) : (
-             <div className="card">
-                <p className="sub">Agrega un vehículo arriba para empezar.</p>
-             </div>
-          )}
-
-          {activeCar && activeCar.stamps < MAX_STAMPS && (
-            <div className="card">
-              <div className="label">Registrar lavado para {activeCar.plate}</div>
-              
-              {isScanning ? (
-                <div style={{ marginBottom: 14 }}>
-                  <div id="reader" style={{ width: '100%', borderRadius: '12px', overflow: 'hidden', background: 'var(--ink)', marginBottom: 10 }} />
-                  <button type="button" className="btn-ghost" onClick={() => setIsScanning(false)}>Cerrar cámara</button>
+            ) : (
+              <div style={{ background: 'rgba(47,199,255,0.06)', border: '1px solid var(--line)', borderRadius: '12px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--aqua)', marginBottom: '8px' }}>
+                  Escribe el nombre de tu vehículo para empezar:
                 </div>
-              ) : (
-                <button type="button" className="btn-primary" onClick={() => { setToast(null); setIsScanning(true); }} disabled={loading}>
-                  📷 Escanear código QR
-                </button>
-              )}
-
-              <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
-                — O ingresa el código manual —
+                <form onSubmit={handleAgregarCarro} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Ej. Jetta Blanco, Sentra, Camioneta"
+                    value={newPlate}
+                    onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
+                    style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={loading || !newPlate.trim()}
+                    style={{ width: 'auto', padding: '10px 16px', marginBottom: 0 }}
+                  >
+                    Guardar
+                  </button>
+                </form>
               </div>
+            )}
 
-              <form onSubmit={handleManualSubmit}>
-                <input type="text" placeholder="Ej. ABCD-1234" value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} disabled={loading} />
-                <button type="submit" className="btn-ghost" disabled={loading || !manualCode.trim()}>
-                  Registrar sello manual
-                </button>
-              </form>
+            {/* LAS GOTAS (WATER DROPS) */}
+            <div className="drops">
+              {Array.from({ length: MAX_STAMPS }).map((_, i) => (
+                <svg
+                  key={i}
+                  className={`drop ${i < stamps ? 'filled' : ''}`}
+                  viewBox="0 0 24 28"
+                >
+                  <path
+                    d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
+                    fill={i < stamps ? 'var(--aqua)' : 'none'}
+                    stroke={i < stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'}
+                    strokeWidth="1.6"
+                  />
+                </svg>
+              ))}
             </div>
-          )}
-          {toast && <div className={`toast ${toast.kind}`} style={{ marginTop: '16px' }}>{toast.msg}</div>}
+
+            <p className="sub" style={{ margin: '8px 0 14px' }}>
+              <strong>{activeCar ? activeCar.plate : 'Tu vehículo'}:</strong> {stamps}/{MAX_STAMPS} sellos acumulados
+            </p>
+
+            {stamps >= MAX_STAMPS ? (
+              <div className="reward">
+                🎉 <strong>¡LAVADO GRATIS DISPONIBLE!</strong>
+                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--amber)', opacity: 0.95 }}>
+                  Muéstrale esta pantalla al operador para canjear tu premio en este lavado.
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: 'var(--text-dim)', margin: 0 }}>
+                Te faltan <strong>{MAX_STAMPS - stamps}</strong> {MAX_STAMPS - stamps === 1 ? 'lavado' : 'lavados'} para tu lavado gratis.
+              </p>
+            )}
+          </div>
+
+          {/* Registrar Sello */}
+          <div className="card">
+            <div className="label">Registrar nuevo lavado {activeCar ? `para ${activeCar.plate}` : ''}</div>
+            <p className="sub" style={{ marginBottom: 14 }}>
+              Escanea el código QR que te muestre el operador o ingresa el código.
+            </p>
+
+            {isScanning ? (
+              <div style={{ marginBottom: 14 }}>
+                <div
+                  id="reader"
+                  style={{
+                    width: '100%',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    background: 'var(--ink)',
+                    marginBottom: 10,
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setIsScanning(false)}
+                >
+                  Cerrar cámara
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setToast(null);
+                  setIsScanning(true);
+                }}
+                disabled={loading}
+              >
+                📷 Escanear código QR
+              </button>
+            )}
+
+            <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
+              — O ingresa el código manual —
+            </div>
+
+            <form onSubmit={handleManualSubmit}>
+              <input
+                type="text"
+                placeholder="Ej. ABCD-1234"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                className="btn-ghost"
+                disabled={loading || !manualCode.trim()}
+              >
+                {loading ? 'Validando...' : 'Registrar sello manual'}
+              </button>
+            </form>
+
+            {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
+          </div>
         </>
       )}
     </div>
@@ -351,7 +518,7 @@ function ClientePageContent() {
 
 export default function ClientePage() {
   return (
-    <Suspense fallback={<div className="wrap"><p className="sub">Cargando...</p></div>}>
+    <Suspense fallback={<div className="wrap"><p className="sub">Cargando tarjeta...</p></div>}>
       <ClientePageContent />
     </Suspense>
   );

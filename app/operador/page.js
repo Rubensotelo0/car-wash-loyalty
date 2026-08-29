@@ -120,10 +120,9 @@ export default function OperadorPage() {
       });
       const data = await res.json();
       
-      // Update local state
       const updatedCars = customerData.cars.map(c => c.plate === plate ? { ...c, stamps: data.stamps } : c);
       setCustomerData({ ...customerData, cars: updatedCars });
-      setOpToast({ msg: `✅ Sello manual sumado al carro ${plate}.`, kind: '' });
+      setOpToast({ msg: `✅ Sello manual sumado al vehículo "${plate}".`, kind: '' });
     } catch (err) {
       console.error('Error al sumar sello:', err);
     } finally {
@@ -142,7 +141,7 @@ export default function OperadorPage() {
       
       const updatedCars = customerData.cars.map(c => c.plate === plate ? { ...c, stamps: data.stamps } : c);
       setCustomerData({ ...customerData, cars: updatedCars });
-      setOpToast({ msg: `Sello deshecho en carro ${plate}.`, kind: 'warn' });
+      setOpToast({ msg: `Sello deshecho en vehículo "${plate}".`, kind: 'warn' });
     } catch (err) {
       console.error('Error al deshacer sello:', err);
     } finally {
@@ -161,7 +160,7 @@ export default function OperadorPage() {
       const updatedCars = customerData.cars.map(c => c.plate === plate ? { ...c, stamps: data.stamps } : c);
       setCustomerData({ ...customerData, cars: updatedCars });
       setConfirmingPlate(null);
-      setOpToast({ msg: `🎉 ¡Premio canjeado con éxito para el carro ${plate}! Tarjeta reseteada.`, kind: '' });
+      setOpToast({ msg: `🎉 ¡Premio canjeado con éxito para "${plate}"! Tarjeta reseteada.`, kind: '' });
     } catch (err) {
       console.error('Error al canjear premio:', err);
     } finally {
@@ -169,27 +168,37 @@ export default function OperadorPage() {
     }
   }
 
-  async function agregarCarro(e) {
+  async function handleAgregarCarro(e) {
     e.preventDefault();
-    if (!newPlate.trim()) return;
+    if (!newPlate.trim() || !customerData) return;
     const upperPlate = newPlate.trim().toUpperCase();
-    
-    // Si ya existe en la lista local, no hacer nada
-    if (customerData.cars.find(c => c.plate === upperPlate)) {
-      setOpToast({ msg: 'Este carro ya existe.', kind: 'warn' });
+
+    if (customerData.cars && customerData.cars.find(c => c.plate === upperPlate)) {
+      setOpToast({ msg: 'Ese vehículo ya está registrado.', kind: 'warn' });
       return;
     }
-    
+
     try {
       setActionLoading(true);
-      // Para crear el carro simplemente usamos la ruta que busca/crea o mandamos 0 sellos
-      // Validar código o canjear premio o simplemente upsert:
-      // Vamos a crear una llamada a sumar-sello que devuelva los sellos actuales pero queremos 0 iniciales.
-      // Así que creamos un API temporal o usamos el mismo.
-      // La forma más limpia sin un endpoint nuevo es re-fetch o crear el endpoint /api/agregar-carro.
-      // Pero podemos usar un "sumar-sello" con 0? No.
-      // Bueno, mejor usar un endpoint que solo agregue si no existe.
+      const res = await fetch('/api/agregar-carro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: customerData.phone, plate: upperPlate })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updated = [...(customerData.cars || []), { phone: customerData.phone, plate: upperPlate, stamps: 0 }];
+        setCustomerData({ ...customerData, cars: updated });
+        setNewPlate('');
+        setOpToast({ msg: `✅ Vehículo "${upperPlate}" agregado con éxito.`, kind: '' });
+      } else {
+        setOpToast({ msg: data.error || 'Error al agregar vehículo', kind: 'err' });
+      }
     } catch(err) {
+      console.error('Error al agregar carro:', err);
+      setOpToast({ msg: 'Error al conectar con el servidor.', kind: 'err' });
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -199,15 +208,22 @@ export default function OperadorPage() {
   return (
     <div className="wrap">
       <h1>Panel del negocio</h1>
-      <p className="sub">Genera un código QR para el cliente o busca tarjetas por teléfono.</p>
+      <p className="sub">Genera un código QR dinámico para el cliente o busca su tarjeta por número telefónico.</p>
 
-      {/* QR */}
+      {/* Sección Código QR */}
       <div className="card">
-        {/* ... (QR Code UI remains same, just shortend here for brevity, I will include it full below) ... */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="label" style={{ margin: 0 }}>Código de este lavado</div>
           <label style={{ fontSize: '12px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-            <input type="checkbox" checked={autoRotate} onChange={(e) => { setAutoRotate(e.target.checked); if (e.target.checked && !token) generar(); }} style={{ width: 'auto', margin: 0 }} />
+            <input
+              type="checkbox"
+              checked={autoRotate}
+              onChange={(e) => {
+                setAutoRotate(e.target.checked);
+                if (e.target.checked && !token) generar();
+              }}
+              style={{ width: 'auto', margin: 0 }}
+            />
             Rotar cada 90s automático
           </label>
         </div>
@@ -220,8 +236,19 @@ export default function OperadorPage() {
             <div className="token">{token}</div>
             <div className="timer">
               Vence en <strong>{secondsLeft}s</strong>
-              <div style={{ height: '4px', background: 'rgba(143,226,255,0.15)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${progressPct}%`, background: secondsLeft > 20 ? 'var(--aqua)' : 'var(--coral)', transition: 'width 0.25s linear' }} />
+              <div style={{
+                height: '4px',
+                background: 'rgba(143,226,255,0.15)',
+                borderRadius: '2px',
+                marginTop: '8px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${progressPct}%`,
+                  background: secondsLeft > 20 ? 'var(--aqua)' : 'var(--coral)',
+                  transition: 'width 0.25s linear'
+                }} />
               </div>
             </div>
           </>
@@ -234,50 +261,86 @@ export default function OperadorPage() {
         </button>
 
         {token && (
-          <button className="btn-ghost btn-danger" onClick={anular}>Anular código actual</button>
+          <button className="btn-ghost btn-danger" onClick={anular}>
+            Anular código actual
+          </button>
         )}
 
         {opToast && <div className={`toast ${opToast.kind}`}>{opToast.msg}</div>}
       </div>
 
-      {/* Buscar Cliente */}
+      {/* Sección Buscar Cliente */}
       <div className="card">
         <div className="label">Buscar cliente por teléfono</div>
-        <input inputMode="numeric" placeholder="Ej. 55 1234 5678" value={phoneQuery} onChange={(e) => setPhoneQuery(e.target.value)} />
+        <input
+          inputMode="numeric"
+          placeholder="Ej. 55 1234 5678"
+          value={phoneQuery}
+          onChange={(e) => setPhoneQuery(e.target.value)}
+        />
         <button className="btn-primary" onClick={buscarCliente} disabled={actionLoading}>
           {actionLoading ? 'Buscando...' : 'Buscar tarjetas'}
         </button>
 
         {customerData && (
           <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
-            <div style={{ fontWeight: 600, marginBottom: '14px' }}>Carros del Cel: {customerData.phone}</div>
-            
-            {customerData.cars.length === 0 && (
-              <p className="sub">No hay carros registrados para este número.</p>
+            <div style={{ fontWeight: 600, marginBottom: '14px' }}>Vehículos de: {customerData.phone}</div>
+
+            {(!customerData.cars || customerData.cars.length === 0) && (
+              <p className="sub">Este cliente aún no tiene vehículos registrados.</p>
             )}
 
-            {customerData.cars.map((car) => (
-              <div key={car.plate} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+            {customerData.cars && customerData.cars.map((car) => (
+              <div
+                key={car.plate}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  marginBottom: '14px',
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--aqua)' }}>Vehículo: {car.plate}</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--aqua)', fontSize: '15px' }}>
+                    🚗 {car.plate}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aqua)' }}>
                     {car.stamps}/{MAX_STAMPS} sellos
                   </div>
                 </div>
 
+                {/* Gotas del vehículo */}
                 <div className="drops" style={{ margin: '14px 0' }}>
                   {Array.from({ length: MAX_STAMPS }).map((_, i) => (
-                    <svg key={i} className={`drop ${i < car.stamps ? 'filled' : ''}`} viewBox="0 0 24 28">
-                      <path d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z" fill={i < car.stamps ? 'var(--aqua)' : 'none'} stroke={i < car.stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'} strokeWidth="1.6" />
+                    <svg
+                      key={i}
+                      className={`drop ${i < car.stamps ? 'filled' : ''}`}
+                      viewBox="0 0 24 28"
+                    >
+                      <path
+                        d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
+                        fill={i < car.stamps ? 'var(--aqua)' : 'none'}
+                        stroke={i < car.stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'}
+                        strokeWidth="1.6"
+                      />
                     </svg>
                   ))}
                 </div>
 
                 <div className="row" style={{ marginTop: '10px' }}>
-                  <button className="btn-primary" onClick={() => sumarSelloManual(car.plate)} disabled={actionLoading || car.stamps >= MAX_STAMPS}>
+                  <button
+                    className="btn-primary"
+                    onClick={() => sumarSelloManual(car.plate)}
+                    disabled={actionLoading || car.stamps >= MAX_STAMPS}
+                  >
                     +1 Sello manual
                   </button>
-                  <button className="btn-ghost" onClick={() => deshacer(car.plate)} disabled={actionLoading || car.stamps === 0}>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => deshacer(car.plate)}
+                    disabled={actionLoading || car.stamps === 0}
+                  >
                     -1 Deshacer
                   </button>
                 </div>
@@ -285,7 +348,11 @@ export default function OperadorPage() {
                 {car.stamps >= MAX_STAMPS && confirmingPlate !== car.plate && (
                   <div className="reward" style={{ marginTop: 14 }}>
                     🎉 <strong>¡Lavado gratis disponible!</strong>
-                    <button className="btn-amber" style={{ marginTop: 10 }} onClick={() => setConfirmingPlate(car.plate)}>
+                    <button
+                      className="btn-amber"
+                      style={{ marginTop: 10 }}
+                      onClick={() => setConfirmingPlate(car.plate)}
+                    >
                       Canjear lavado gratis
                     </button>
                   </div>
@@ -293,42 +360,45 @@ export default function OperadorPage() {
 
                 {confirmingPlate === car.plate && (
                   <div className="reward" style={{ marginTop: 14 }}>
-                    Confirma en voz alta:<br />
-                    <strong>¿Canjear premio para la placa {car.plate}?</strong>
+                    Confirma en voz alta con el cliente:
+                    <br />
+                    <strong>¿Canjear lavado gratis para el vehículo "{car.plate}"?</strong>
                     <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn-amber" onClick={() => confirmarCanje(car.plate)} disabled={actionLoading}>
+                      <button
+                        className="btn-amber"
+                        onClick={() => confirmarCanje(car.plate)}
+                        disabled={actionLoading}
+                      >
                         Sí, entregar gratis
                       </button>
-                      <button className="btn-ghost" onClick={() => setConfirmingPlate(null)}>Cancelar</button>
+                      <button className="btn-ghost" onClick={() => setConfirmingPlate(null)}>
+                        Cancelar
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
             ))}
-            
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if(!newPlate.trim()) return;
-              const upperPlate = newPlate.trim().toUpperCase();
-              if (customerData.cars.find(c => c.plate === upperPlate)) {
-                setOpToast({ msg: 'La placa ya existe.', kind: 'warn' }); return;
-              }
-              try {
-                setActionLoading(true);
-                const res = await fetch('/api/agregar-carro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: customerData.phone, plate: upperPlate }) });
-                if (res.ok) {
-                  setCustomerData({ ...customerData, cars: [...customerData.cars, { phone: customerData.phone, plate: upperPlate, stamps: 0 }] });
-                  setNewPlate('');
-                  setOpToast({ msg: `✅ Placa ${upperPlate} agregada.`, kind: '' });
-                }
-              } catch(err) {} finally { setActionLoading(false); }
-            }}>
-              <div style={{ marginTop: '16px' }}>
-                <div className="label">Agregar nuevo vehículo (nombre/placa)</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="text" placeholder="Ej. Jetta Blanco" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase' }} />
-                  <button type="submit" className="btn-primary" style={{ width: 'auto' }} disabled={actionLoading || !newPlate.trim()}>Agregar</button>
-                </div>
+
+            {/* Formulario para agregar nuevo vehículo al cliente */}
+            <form onSubmit={handleAgregarCarro} style={{ marginTop: '16px' }}>
+              <div className="label">Agregar nuevo vehículo al cliente</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Nombre (Ej. Jetta Blanco, Moto, etc.)"
+                  value={newPlate}
+                  onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
+                  style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                />
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ width: 'auto', padding: '10px 18px', marginBottom: 0 }}
+                  disabled={actionLoading || !newPlate.trim()}
+                >
+                  Agregar
+                </button>
               </div>
             </form>
           </div>
