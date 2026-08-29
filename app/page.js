@@ -1,32 +1,56 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
 
 const MAX_STAMPS = 6;
 
-export default function ClientePage() {
+function ClientePageContent() {
+  const searchParams = useSearchParams();
   const [phone, setPhone] = useState('');
   const [inputPhone, setInputPhone] = useState('');
   const [stamps, setStamps] = useState(0);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [manualCode, setManualCode] = useState('');
+  const [pendingCode, setPendingCode] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   const qrScannerRef = useRef(null);
 
-  // Cargar teléfono de localStorage al montar
+  // 1. Cargar teléfono guardado y procesar código desde la URL (?code=ABCD-1234)
   useEffect(() => {
     setIsMounted(true);
+    const codeFromUrl = searchParams.get('code');
     const savedPhone = localStorage.getItem('carwash_phone');
-    if (savedPhone) {
+
+    if (codeFromUrl) {
+      const cleanCode = codeFromUrl.trim().toUpperCase();
+      setPendingCode(cleanCode);
+
+      if (savedPhone) {
+        setPhone(savedPhone);
+        fetchTarjeta(savedPhone);
+        // Validar automáticamente si ya tenemos el teléfono guardado
+        procesarCodigo(cleanCode, savedPhone);
+        // Limpiar el parámetro de la URL para evitar reprocesar al refrescar
+        if (typeof window !== 'undefined') {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } else {
+        setToast({
+          msg: `🎉 ¡Código ${cleanCode} detectado! Ingresa tu número de celular para sumar tu sello.`,
+          kind: 'warn',
+        });
+      }
+    } else if (savedPhone) {
       setPhone(savedPhone);
       fetchTarjeta(savedPhone);
     }
-  }, []);
+  }, [searchParams]);
 
-  // Manejador del escáner QR
+  // 2. Manejador del escáner QR de cámara
   useEffect(() => {
     let html5QrCode = null;
 
@@ -46,7 +70,14 @@ export default function ClientePage() {
                 console.error('Error al detener escáner:', e);
               }
               setIsScanning(false);
-              await procesarCodigo(decodedText.trim().toUpperCase());
+
+              // Si el texto decodificado es una URL (ej. https://...?code=ABCD-1234), extraemos el token
+              let tokenToProcess = decodedText.trim();
+              if (tokenToProcess.includes('code=')) {
+                const parts = tokenToProcess.split('code=');
+                tokenToProcess = parts[1].split('&')[0];
+              }
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone);
             },
             () => {
               // Frame no decodificado, ignorar
@@ -55,7 +86,7 @@ export default function ClientePage() {
         } catch (err) {
           console.error('No se pudo iniciar la cámara:', err);
           setToast({
-            msg: 'No se pudo acceder a la cámara. Puedes escribir el código manualmente.',
+            msg: 'No se pudo acceder a la cámara. Puedes escribir el código manualmente abajo.',
             kind: 'warn',
           });
           setIsScanning(false);
@@ -88,7 +119,7 @@ export default function ClientePage() {
     }
   }
 
-  function handleGuardarTelefono(e) {
+  async function handleGuardarTelefono(e) {
     e.preventDefault();
     const digits = inputPhone.replace(/\D/g, '');
     if (digits.length < 10) {
@@ -98,7 +129,18 @@ export default function ClientePage() {
     localStorage.setItem('carwash_phone', digits);
     setPhone(digits);
     setToast(null);
-    fetchTarjeta(digits);
+
+    // Si había un código pendiente que vino por QR / URL, lo validamos de inmediato
+    if (pendingCode) {
+      const codeToRun = pendingCode;
+      setPendingCode(null);
+      await procesarCodigo(codeToRun, digits);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } else {
+      fetchTarjeta(digits);
+    }
   }
 
   function handleCambiarTelefono() {
@@ -112,12 +154,14 @@ export default function ClientePage() {
     setStamps(0);
     setToast(null);
     setManualCode('');
+    setPendingCode(null);
   }
 
-  async function procesarCodigo(token) {
+  async function procesarCodigo(token, targetPhone) {
+    const activePhone = targetPhone || phone;
     if (!token) return;
-    if (!phone) {
-      setToast({ msg: 'Identifícate con tu número antes de ingresar el código.', kind: 'warn' });
+    if (!activePhone) {
+      setToast({ msg: 'Ingresa tu número celular antes de registrar el código.', kind: 'warn' });
       return;
     }
 
@@ -128,7 +172,7 @@ export default function ClientePage() {
       const res = await fetch('/api/validar-codigo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, phone }),
+        body: JSON.stringify({ token, phone: activePhone }),
       });
 
       const data = await res.json();
@@ -142,13 +186,13 @@ export default function ClientePage() {
       setManualCode('');
       setToast({
         msg: data.stamps >= MAX_STAMPS
-          ? '🎉 ¡Felicidades! Has completado tu tarjeta. Tienes un lavado gratis.'
-          : `✅ ¡Sello registrado con éxito! Llevas ${data.stamps} de ${MAX_STAMPS}.`,
+          ? '🎉 ¡FELICIDADES! Has completado tu tarjeta. Tienes 1 lavado gratis disponible.'
+          : `✅ ¡Sello registrado con éxito! Llevas ${data.stamps} de ${MAX_STAMPS} sellos.`,
         kind: '',
       });
     } catch (err) {
       console.error('Error al validar código:', err);
-      setToast({ msg: 'Error de conexión. Intenta de nuevo.', kind: 'err' });
+      setToast({ msg: 'Error al conectar con el servidor. Intenta de nuevo.', kind: 'err' });
     } finally {
       setLoading(false);
     }
@@ -157,12 +201,10 @@ export default function ClientePage() {
   function handleManualSubmit(e) {
     e.preventDefault();
     if (!manualCode.trim()) return;
-    procesarCodigo(manualCode.trim().toUpperCase());
+    procesarCodigo(manualCode.trim().toUpperCase(), phone);
   }
 
-  if (!isMounted) {
-    return null;
-  }
+  if (!isMounted) return null;
 
   return (
     <div className="wrap">
@@ -171,9 +213,9 @@ export default function ClientePage() {
 
       {!phone ? (
         <div className="card">
-          <div className="label">Ingresa tu número</div>
+          <div className="label">Ingresa tu número de celular</div>
           <p className="sub" style={{ marginBottom: 14 }}>
-            Tu número celular es tu tarjeta digital. No requiere contraseñas ni SMS.
+            Tu número es tu tarjeta digital. No necesitas contraseña ni descargar apps.
           </p>
           <form onSubmit={handleGuardarTelefono}>
             <input
@@ -185,19 +227,25 @@ export default function ClientePage() {
               autoFocus
             />
             <button type="submit" className="btn-primary" disabled={loading}>
-              Ver mi tarjeta
+              {pendingCode ? 'Guardar y reclamar mi sello' : 'Ver mi tarjeta'}
             </button>
           </form>
           {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
         </div>
       ) : (
         <>
+          {/* Tarjeta de Lealtad */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div className="label" style={{ margin: 0 }}>Tu Tarjeta</div>
-              <a className="link" onClick={handleCambiarTelefono}>
-                Cambiar número ({phone.slice(-4)})
-              </a>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a className="link" onClick={() => fetchTarjeta(phone)}>
+                  🔄 Actualizar
+                </a>
+                <a className="link" onClick={handleCambiarTelefono}>
+                  Cambiar número ({phone.slice(-4)})
+                </a>
+              </div>
             </div>
 
             <div className="drops">
@@ -223,8 +271,8 @@ export default function ClientePage() {
 
             {stamps >= MAX_STAMPS ? (
               <div className="reward">
-                🎉 <strong>¡Lavado gratis disponible!</strong>
-                <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--amber)', opacity: 0.9 }}>
+                🎉 <strong>¡LAVADO GRATIS DISPONIBLE!</strong>
+                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--amber)', opacity: 0.95 }}>
                   Muéstrale esta pantalla al operador para canjear tu premio en este lavado.
                 </p>
               </div>
@@ -235,10 +283,11 @@ export default function ClientePage() {
             )}
           </div>
 
+          {/* Registrar Sello */}
           <div className="card">
             <div className="label">Registrar nuevo lavado</div>
             <p className="sub" style={{ marginBottom: 14 }}>
-              Escanea el código QR que te muestre el operador o escríbelo abajo.
+              Escanea el código QR que te muestre el operador o ingresa el código.
             </p>
 
             {isScanning ? (
@@ -258,7 +307,7 @@ export default function ClientePage() {
                   className="btn-ghost"
                   onClick={() => setIsScanning(false)}
                 >
-                  Cancelar escáner
+                  Cerrar cámara
                 </button>
               </div>
             ) : (
@@ -301,5 +350,13 @@ export default function ClientePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ClientePage() {
+  return (
+    <Suspense fallback={<div className="wrap"><p className="sub">Cargando tarjeta...</p></div>}>
+      <ClientePageContent />
+    </Suspense>
   );
 }

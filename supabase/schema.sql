@@ -15,3 +15,8 @@ create table if not exists codes (
 
 -- índice para poder limpiar códigos viejos cada tanto (opcional, no obligatorio para el MVP)
 create index if not exists codes_created_at_idx on codes (created_at);
+
+-- Desactivar RLS para permitir que el backend gestione los datos con seguridad interna
+alter table customers disable row level security;
+alter table codes disable row level security;
+
