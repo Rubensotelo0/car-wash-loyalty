@@ -27,22 +27,28 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Código vencido (expiró tras 90s)' }, { status: 410 });
     }
 
-    // Se marca como usado ANTES de sumar el sello — si dos personas intentan
+    // 1. Aseguramos que el cliente exista en la base de datos para no violar la clave foránea
+    const { data: existing } = await supabase
+      .from('customers').select('*').eq('phone', phone).single();
+
+    if (!existing) {
+      await supabase.from('customers').insert({ phone, stamps: 0 });
+    }
+
+    // 2. Se marca como usado ANTES de sumar el sello — si dos personas intentan
     // usarlo al mismo tiempo, la segunda ya lo encuentra marcado.
-    const { data: claimed } = await supabase
+    const { data: claimed, error: claimErr } = await supabase
       .from('codes')
       .update({ used: true, used_by: phone })
       .eq('token', token)
       .eq('used', false)
       .select();
 
-    if (!claimed || claimed.length === 0) {
+    if (claimErr || !claimed || claimed.length === 0) {
       return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
     }
 
-    const { data: existing } = await supabase
-      .from('customers').select('*').eq('phone', phone).single();
-
+    // 3. Sumar el sello a la tarjeta del cliente
     const newStamps = Math.min(MAX_STAMPS, (existing?.stamps || 0) + 1);
 
     const { error: custErr } = await supabase
