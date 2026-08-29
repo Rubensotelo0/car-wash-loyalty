@@ -259,7 +259,7 @@ export default function OperadorPage() {
             {customerData.cars.map((car) => (
               <div key={car.plate} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--aqua)' }}>Placa: {car.plate}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--aqua)' }}>Vehículo: {car.plate}</div>
                   <div style={{ fontSize: '13px', fontWeight: 700 }}>
                     {car.stamps}/{MAX_STAMPS} sellos
                   </div>
@@ -324,9 +324,9 @@ export default function OperadorPage() {
               } catch(err) {} finally { setActionLoading(false); }
             }}>
               <div style={{ marginTop: '16px' }}>
-                <div className="label">Agregar nuevo carro / placa</div>
+                <div className="label">Agregar nuevo vehículo (nombre/placa)</div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="text" placeholder="Ej. ABC-1234" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase' }} />
+                  <input type="text" placeholder="Ej. Jetta Blanco" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase' }} />
                   <button type="submit" className="btn-primary" style={{ width: 'auto' }} disabled={actionLoading || !newPlate.trim()}>Agregar</button>
                 </div>
               </div>

@@ -174,7 +174,7 @@ function ClientePageContent() {
         await fetchTarjetas(phone);
         setSelectedPlate(upperPlate);
         setNewPlate('');
-        setToast({ msg: `✅ Placa ${upperPlate} agregada con éxito.`, kind: '' });
+        setToast({ msg: `✅ Vehículo ${upperPlate} agregado con éxito.`, kind: '' });
       } else {
         const data = await res.json();
         setToast({ msg: data.error || 'Error al agregar placa', kind: 'err' });
@@ -255,16 +255,16 @@ function ClientePageContent() {
                   style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'var(--ink)', border: '1px solid var(--line)', color: 'white', marginBottom: '12px' }}
                 >
                   {cars.map(c => (
-                    <option key={c.plate} value={c.plate}>Carro: {c.plate} ({c.stamps} sellos)</option>
+                    <option key={c.plate} value={c.plate}>Vehículo: {c.plate} ({c.stamps} sellos)</option>
                   ))}
                 </select>
               </div>
             ) : (
-              <p className="sub" style={{ marginTop: '10px' }}>No tienes carros registrados.</p>
+              <p className="sub" style={{ marginTop: '10px' }}>No tienes vehículos registrados.</p>
             )}
 
             <form onSubmit={handleAgregarCarro} style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              <input type="text" placeholder="Nueva Placa (Ej. ABC-123)" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase', padding: '10px' }} />
+              <input type="text" placeholder="Nombre (Ej. Jetta Blanco)" value={newPlate} onChange={e => setNewPlate(e.target.value.toUpperCase())} style={{ flex: 1, textTransform: 'uppercase', padding: '10px' }} />
               <button type="submit" className="btn-ghost" disabled={loading || !newPlate.trim()} style={{ width: 'auto', padding: '10px 16px' }}>Agregar</button>
             </form>
           </div>

@@ -37,7 +37,7 @@ export async function POST(req) {
     // 2. Se marca como usado
     const { data: claimed, error: claimErr } = await supabase
       .from('codes')
-      .update({ used: true, used_by: phone, used_by_plate: plate })
+      .update({ used: true, used_by: phone })
       .eq('token', token)
       .eq('used', false)
       .select();
