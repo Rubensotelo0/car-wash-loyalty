@@ -72,19 +72,17 @@ function ClientePageContent() {
 
   useEffect(() => {
     // Si hay código pendiente y tenemos un carro seleccionado, lo procesamos.
-    if (pendingCode && phone) {
+    if (pendingCode && phone && selectedPlate) {
       const codeToRun = pendingCode;
-      const plateToUse = selectedPlate || 'GENERAL';
       setPendingCode(null);
-      procesarCodigo(codeToRun, phone, plateToUse);
+      procesarCodigo(codeToRun, phone, selectedPlate);
       if (typeof window !== 'undefined') window.history.replaceState({}, '', window.location.pathname);
     }
   }, [pendingCode, phone, selectedPlate]);
 
   useEffect(() => {
     let html5QrCode = null;
-    const plateToUse = selectedPlate || 'GENERAL';
-    if (isScanning) {
+    if (isScanning && selectedPlate) {
       const timer = setTimeout(async () => {
         try {
           html5QrCode = new Html5Qrcode('reader');
@@ -97,7 +95,7 @@ function ClientePageContent() {
               setIsScanning(false);
               let tokenToProcess = decodedText.trim();
               if (tokenToProcess.includes('code=')) tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
-              await procesarCodigo(tokenToProcess.toUpperCase(), phone, plateToUse);
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone, selectedPlate);
             },
             () => {}
           );
@@ -118,7 +116,7 @@ function ClientePageContent() {
   async function fetchTarjetas(telefono) {
     try {
       setLoading(true);
-      const res = await fetch(`/api/tarjeta?phone=${telefono}`);
+      const res = await fetch(`/api/tarjeta?phone=${telefono}&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setCars(data.cars || []);
@@ -214,9 +212,8 @@ function ClientePageContent() {
 
   function handleManualSubmit(e) {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    const plateToUse = selectedPlate || 'GENERAL';
-    procesarCodigo(manualCode.trim().toUpperCase(), phone, plateToUse);
+    if (!manualCode.trim() || !selectedPlate) return;
+    procesarCodigo(manualCode.trim().toUpperCase(), phone, selectedPlate);
   }
 
   if (!isMounted) return null;
@@ -314,13 +311,13 @@ function ClientePageContent() {
             </>
           ) : (
              <div className="card">
-                <p className="sub">Agrega un carro o escanea un código para empezar.</p>
+                <p className="sub">Agrega un vehículo arriba para empezar.</p>
              </div>
           )}
 
-          {(!activeCar || activeCar.stamps < MAX_STAMPS) && (
+          {activeCar && activeCar.stamps < MAX_STAMPS && (
             <div className="card">
-              <div className="label">Registrar lavado para {activeCar ? activeCar.plate : 'GENERAL'}</div>
+              <div className="label">Registrar lavado para {activeCar.plate}</div>
               
               {isScanning ? (
                 <div style={{ marginBottom: 14 }}>

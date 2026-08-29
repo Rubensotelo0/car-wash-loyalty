@@ -96,7 +96,7 @@ export default function OperadorPage() {
     }
     try {
       setActionLoading(true);
-      const res = await fetch(`/api/tarjeta?phone=${digits}`);
+      const res = await fetch(`/api/tarjeta?phone=${digits}&_t=${Date.now()}`);
       const data = await res.json();
       setCustomerData(data); // { phone, cars: [...] }
       setConfirmingPlate(null);
@@ -268,7 +268,7 @@ export default function OperadorPage() {
                 <div className="drops" style={{ margin: '14px 0' }}>
                   {Array.from({ length: MAX_STAMPS }).map((_, i) => (
                     <svg key={i} className={`drop ${i < car.stamps ? 'filled' : ''}`} viewBox="0 0 24 28">
-                      <path d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 12.5 12 1 12 1Z" fill={i < car.stamps ? 'var(--aqua)' : 'none'} stroke={i < car.stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'} strokeWidth="1.6" />
+                      <path d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z" fill={i < car.stamps ? 'var(--aqua)' : 'none'} stroke={i < car.stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'} strokeWidth="1.6" />
                     </svg>
                   ))}
                 </div>

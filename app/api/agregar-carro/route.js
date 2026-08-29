@@ -11,10 +11,11 @@ export async function POST(req) {
   const { error } = await supabase.from('customers').insert({ phone, plate, stamps: 0 });
 
   if (error) {
+    console.error("Error en agregar-carro:", error);
     if (error.code === '23505') {
        return NextResponse.json({ error: 'La placa ya existe' }, { status: 409 });
     }
-    return NextResponse.json({ error: 'Error al agregar carro' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Error al agregar carro' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
