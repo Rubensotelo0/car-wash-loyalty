@@ -72,17 +72,19 @@ function ClientePageContent() {
 
   useEffect(() => {
     // Si hay código pendiente y tenemos un carro seleccionado, lo procesamos.
-    if (pendingCode && phone && selectedPlate) {
+    if (pendingCode && phone) {
       const codeToRun = pendingCode;
+      const plateToUse = selectedPlate || 'GENERAL';
       setPendingCode(null);
-      procesarCodigo(codeToRun, phone, selectedPlate);
+      procesarCodigo(codeToRun, phone, plateToUse);
       if (typeof window !== 'undefined') window.history.replaceState({}, '', window.location.pathname);
     }
   }, [pendingCode, phone, selectedPlate]);
 
   useEffect(() => {
     let html5QrCode = null;
-    if (isScanning && selectedPlate) {
+    const plateToUse = selectedPlate || 'GENERAL';
+    if (isScanning) {
       const timer = setTimeout(async () => {
         try {
           html5QrCode = new Html5Qrcode('reader');
@@ -95,7 +97,7 @@ function ClientePageContent() {
               setIsScanning(false);
               let tokenToProcess = decodedText.trim();
               if (tokenToProcess.includes('code=')) tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
-              await procesarCodigo(tokenToProcess.toUpperCase(), phone, selectedPlate);
+              await procesarCodigo(tokenToProcess.toUpperCase(), phone, plateToUse);
             },
             () => {}
           );
@@ -212,8 +214,9 @@ function ClientePageContent() {
 
   function handleManualSubmit(e) {
     e.preventDefault();
-    if (!manualCode.trim() || !selectedPlate) return;
-    procesarCodigo(manualCode.trim().toUpperCase(), phone, selectedPlate);
+    if (!manualCode.trim()) return;
+    const plateToUse = selectedPlate || 'GENERAL';
+    procesarCodigo(manualCode.trim().toUpperCase(), phone, plateToUse);
   }
 
   if (!isMounted) return null;
@@ -266,7 +269,7 @@ function ClientePageContent() {
             </form>
           </div>
 
-          {activeCar && (
+          {activeCar ? (
             <>
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -308,35 +311,39 @@ function ClientePageContent() {
                   </p>
                 )}
               </div>
-
-              {activeCar.stamps < MAX_STAMPS && (
-                <div className="card">
-                  <div className="label">Registrar lavado para {activeCar.plate}</div>
-                  
-                  {isScanning ? (
-                    <div style={{ marginBottom: 14 }}>
-                      <div id="reader" style={{ width: '100%', borderRadius: '12px', overflow: 'hidden', background: 'var(--ink)', marginBottom: 10 }} />
-                      <button type="button" className="btn-ghost" onClick={() => setIsScanning(false)}>Cerrar cámara</button>
-                    </div>
-                  ) : (
-                    <button type="button" className="btn-primary" onClick={() => { setToast(null); setIsScanning(true); }} disabled={loading}>
-                      📷 Escanear código QR
-                    </button>
-                  )}
-
-                  <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
-                    — O ingresa el código manual —
-                  </div>
-
-                  <form onSubmit={handleManualSubmit}>
-                    <input type="text" placeholder="Ej. ABCD-1234" value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} disabled={loading} />
-                    <button type="submit" className="btn-ghost" disabled={loading || !manualCode.trim()}>
-                      Registrar sello manual
-                    </button>
-                  </form>
-                </div>
-              )}
             </>
+          ) : (
+             <div className="card">
+                <p className="sub">Agrega un carro o escanea un código para empezar.</p>
+             </div>
+          )}
+
+          {(!activeCar || activeCar.stamps < MAX_STAMPS) && (
+            <div className="card">
+              <div className="label">Registrar lavado para {activeCar ? activeCar.plate : 'GENERAL'}</div>
+              
+              {isScanning ? (
+                <div style={{ marginBottom: 14 }}>
+                  <div id="reader" style={{ width: '100%', borderRadius: '12px', overflow: 'hidden', background: 'var(--ink)', marginBottom: 10 }} />
+                  <button type="button" className="btn-ghost" onClick={() => setIsScanning(false)}>Cerrar cámara</button>
+                </div>
+              ) : (
+                <button type="button" className="btn-primary" onClick={() => { setToast(null); setIsScanning(true); }} disabled={loading}>
+                  📷 Escanear código QR
+                </button>
+              )}
+
+              <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)' }}>
+                — O ingresa el código manual —
+              </div>
+
+              <form onSubmit={handleManualSubmit}>
+                <input type="text" placeholder="Ej. ABCD-1234" value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} disabled={loading} />
+                <button type="submit" className="btn-ghost" disabled={loading || !manualCode.trim()}>
+                  Registrar sello manual
+                </button>
+              </form>
+            </div>
           )}
           {toast && <div className={`toast ${toast.kind}`} style={{ marginTop: '16px' }}>{toast.msg}</div>}
         </>

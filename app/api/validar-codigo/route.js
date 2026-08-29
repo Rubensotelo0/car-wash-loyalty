@@ -43,7 +43,8 @@ export async function POST(req) {
       .select();
 
     if (claimErr || !claimed || claimed.length === 0) {
-      return NextResponse.json({ error: 'Este código ya fue usado' }, { status: 409 });
+      if (claimErr) console.error("Error al reclamar código:", claimErr);
+      return NextResponse.json({ error: claimErr?.message || 'Este código ya fue usado' }, { status: 409 });
     }
 
     // 3. Sumar el sello a la tarjeta del carro
