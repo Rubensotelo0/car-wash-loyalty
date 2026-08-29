@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../lib/supabaseClient';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
 
 export async function GET(req) {
   try {
@@ -13,14 +15,20 @@ export async function GET(req) {
     const phone = rawPhone.replace(/\D/g, '');
     const supabase = supabaseServer();
     
+    const headers = {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
+
     if (plate) {
       const cleanPlate = plate.trim().toUpperCase();
       const { data } = await supabase.from('customers').select('*').eq('phone', phone).eq('plate', cleanPlate).single();
-      return NextResponse.json({ phone, plate: cleanPlate, stamps: data?.stamps || 0 });
+      return NextResponse.json({ phone, plate: cleanPlate, stamps: data?.stamps || 0 }, { headers });
     } else {
       const { data, error } = await supabase.from('customers').select('*').eq('phone', phone).order('created_at', { ascending: true });
       if (error) throw error;
-      return NextResponse.json({ phone, cars: data || [] });
+      return NextResponse.json({ phone, cars: data || [] }, { headers });
     }
   } catch (err) {
     console.error('Error en consulta de tarjeta:', err);

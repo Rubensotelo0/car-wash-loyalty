@@ -116,10 +116,14 @@ function ClientePageContent() {
   }, [isScanning]);
 
   async function fetchTarjetas(telefono) {
+    if (!telefono) return;
     try {
       setLoading(true);
       const cleanPhone = String(telefono).replace(/\D/g, '');
-      const res = await fetch(`/api/tarjeta?phone=${cleanPhone}&_t=${Date.now()}`);
+      const res = await fetch(`/api/tarjeta?phone=${cleanPhone}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+      });
       if (res.ok) {
         const data = await res.json();
         const carList = data.cars || [];
@@ -129,8 +133,6 @@ function ClientePageContent() {
             const exists = carList.find((c) => c.plate === prev);
             return exists ? prev : carList[0].plate;
           });
-        } else {
-          setSelectedPlate('');
         }
       }
     } catch (err) {

@@ -96,7 +96,10 @@ export default function OperadorPage() {
     }
     try {
       setActionLoading(true);
-      const res = await fetch(`/api/tarjeta?phone=${digits}&_t=${Date.now()}`);
+      const res = await fetch(`/api/tarjeta?phone=${digits}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+      });
       const data = await res.json();
       setCustomerData(data); // { phone, cars: [...] }
       setConfirmingPlate(null);
