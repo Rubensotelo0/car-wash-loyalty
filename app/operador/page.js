@@ -1,11 +1,13 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 
 const MAX_STAMPS = 6;
 const TTL_MS = 90 * 1000;
 
 export default function OperadorPage() {
+  const router = useRouter();
   // Autenticación de Operador
   const [authChecking, setAuthChecking] = useState(true);
   const [operator, setOperator] = useState(null);
@@ -402,8 +404,18 @@ export default function OperadorPage() {
 
       <div className="brand-header">
         <h1>Panel del negocio</h1>
-        <p className="sub">Genera un código QR dinámico para el cliente o busca su tarjeta por número telefónico.</p>
+        <p className="sub" style={{ marginBottom: 16 }}>Genera un código QR dinámico para el cliente o busca su tarjeta por número telefónico.</p>
       </div>
+
+      {/* Acceso Rápido al QR de Paquetes y Promociones */}
+      <button
+        type="button"
+        className="btn-gold"
+        onClick={() => router.push('/qr-paquetes')}
+        style={{ marginBottom: 20 }}
+      >
+        🚗 Ver y Descargar Código QR de Paquetes (Camaro)
+      </button>
 
       {/* Sección Código QR (Sin marco blanco sobrante) */}
       <div className="card">
