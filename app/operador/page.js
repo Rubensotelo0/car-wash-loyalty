@@ -6,6 +6,15 @@ const MAX_STAMPS = 6;
 const TTL_MS = 90 * 1000;
 
 export default function OperadorPage() {
+  // Autenticación de Operador
+  const [authChecking, setAuthChecking] = useState(true);
+  const [operator, setOperator] = useState(null);
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Estados del Panel Operador
   const [token, setToken] = useState(null);
   const [issuedAt, setIssuedAt] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -19,6 +28,24 @@ export default function OperadorPage() {
   const [confirmingPlate, setConfirmingPlate] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [newPlate, setNewPlate] = useState('');
+
+  // 1. Verificar sesión existente del operador
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/operador/verificar');
+        const data = await res.json();
+        if (data.authenticated && data.operator) {
+          setOperator(data.operator);
+        }
+      } catch (err) {
+        console.error('Error al verificar sesión:', err);
+      } finally {
+        setAuthChecking(false);
+      }
+    }
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -45,6 +72,58 @@ export default function OperadorPage() {
     return () => clearInterval(timerRef.current);
   }, [issuedAt, autoRotate]);
 
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoginError(null);
+    setLoginLoading(true);
+
+    const clean = loginPhone.replace(/\D/g, '');
+    if (clean.length < 10) {
+      setLoginError('Ingresa los 10 dígitos de tu número celular.');
+      setLoginLoading(false);
+      return;
+    }
+    if (!loginPassword.trim()) {
+      setLoginError('Ingresa tu contraseña de operador.');
+      setLoginLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/operador/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: clean, password: loginPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setLoginError(data.error || 'Credenciales inválidas.');
+        return;
+      }
+
+      setOperator(data.operator);
+      setLoginPhone('');
+      setLoginPassword('');
+    } catch (err) {
+      console.error('Error login:', err);
+      setLoginError('Error de conexión con el servidor.');
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/operador/logout', { method: 'POST' });
+      setOperator(null);
+      setToken(null);
+      setCustomerData(null);
+    } catch (err) {
+      console.error('Error logout:', err);
+    }
+  }
+
   async function generar(isAuto = false) {
     try {
       setActionLoading(true);
@@ -64,7 +143,7 @@ export default function OperadorPage() {
       setIssuedAt(Date.now());
       setSecondsLeft(90);
       if (!isAuto) {
-        setOpToast({ msg: '✅ Código QR generado. Listo para escanear.', kind: '' });
+        setOpToast({ msg: '✅ Código QR generado. Listo para que el cliente lo escanee.', kind: '' });
       }
     } catch (err) {
       console.error('Error al generar código:', err);
@@ -208,15 +287,130 @@ export default function OperadorPage() {
   const qrFullUrl = token && origin ? `${origin}/?code=${token}` : token || '';
   const progressPct = issuedAt ? Math.max(0, (secondsLeft / 90) * 100) : 0;
 
+  // Estado de carga inicial
+  if (authChecking) {
+    return (
+      <div className="wrap">
+        <p className="sub" style={{ textAlign: 'center', marginTop: 40 }}>Verificando credenciales de operador...</p>
+      </div>
+    );
+  }
+
+  // PANTALLA 1: LOGIN DE OPERADOR (Si no está autenticado)
+  if (!operator) {
+    return (
+      <div className="wrap">
+        {/* Fondo con Burbujas Flotantes */}
+        <div className="bubbles-container" aria-hidden="true">
+          <div className="bubble" />
+          <div className="bubble" />
+          <div className="bubble" />
+          <div className="bubble" />
+          <div className="bubble" />
+        </div>
+
+        <div className="brand-header">
+          <div className="brand-badge">
+            <span>🔒</span> Acceso Restringido <span>⚙️</span>
+          </div>
+          <h1>La Carpita · Operador</h1>
+          <p className="sub">Ingresa con tu número y clave de operador para acceder al panel.</p>
+        </div>
+
+        <div className="card card-glow">
+          <div className="label">
+            <span>🛡️</span> Identificación de Operador
+          </div>
+          <form onSubmit={handleLogin}>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="Número celular (10 dígitos)"
+              value={loginPhone}
+              onChange={(e) => setLoginPhone(e.target.value)}
+              disabled={loginLoading}
+              autoFocus
+            />
+            <input
+              type="password"
+              placeholder="Contraseña de operador"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              disabled={loginLoading}
+            />
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loginLoading}
+            >
+              {loginLoading ? 'Verificando...' : '🔑 Iniciar Sesión en Panel'}
+            </button>
+          </form>
+
+          {loginError && (
+            <div className="toast err">
+              {loginError}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA 2: PANEL DE OPERADOR (Autenticado)
   return (
     <div className="wrap">
-      <h1>Panel del negocio</h1>
-      <p className="sub">Genera un código QR dinámico para el cliente o busca su tarjeta por número telefónico.</p>
+      {/* Fondo con Burbujas Flotantes */}
+      <div className="bubbles-container" aria-hidden="true">
+        <div className="bubble" />
+        <div className="bubble" />
+        <div className="bubble" />
+        <div className="bubble" />
+      </div>
 
-      {/* Sección Código QR */}
+      {/* Barra Superior con datos de Operador y Cerrar Sesión */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'rgba(5, 14, 21, 0.85)',
+        border: '1px solid var(--line)',
+        borderRadius: '12px',
+        padding: '10px 14px',
+        marginBottom: 20
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '14px' }}>👤</span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aqua-neon)' }}>
+              {operator.name}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+              Tel: {operator.phone}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="btn-ghost btn-danger"
+          style={{ width: 'auto', padding: '6px 12px', fontSize: '12px', margin: 0 }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+
+      <div className="brand-header">
+        <h1>Panel del negocio</h1>
+        <p className="sub">Genera un código QR dinámico para el cliente o busca su tarjeta por número telefónico.</p>
+      </div>
+
+      {/* Sección Código QR (Sin marco blanco sobrante) */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div className="label" style={{ margin: 0 }}>Código de este lavado</div>
+          <div className="label" style={{ margin: 0 }}>
+            <span>⚡</span> Código de este lavado
+          </div>
           <label style={{ fontSize: '12px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -227,15 +421,19 @@ export default function OperadorPage() {
               }}
               style={{ width: 'auto', margin: 0 }}
             />
-            Rotar cada 90s automático
+            Rotar cada 90s auto
           </label>
         </div>
 
         {token ? (
           <>
-            <div className="qr-box">
-              <QRCodeSVG value={qrFullUrl} size={180} bgColor="#FFFFFF" fgColor="#000000" level="M" />
+            {/* CONTENEDOR LIMPIO: Sin exceso de borde blanco alrededor */}
+            <div className="qr-container-clean">
+              <div className="qr-box">
+                <QRCodeSVG value={qrFullUrl} size={190} bgColor="#FFFFFF" fgColor="#000000" level="M" />
+              </div>
             </div>
+
             <div className="token">{token}</div>
             <div className="timer">
               Vence en <strong>{secondsLeft}s</strong>
@@ -249,14 +447,16 @@ export default function OperadorPage() {
                 <div style={{
                   height: '100%',
                   width: `${progressPct}%`,
-                  background: secondsLeft > 20 ? 'var(--aqua)' : 'var(--coral)',
+                  background: secondsLeft > 20 ? 'var(--aqua-neon)' : 'var(--coral)',
                   transition: 'width 0.25s linear'
                 }} />
               </div>
             </div>
           </>
         ) : (
-          <p className="sub">Sin código activo. Genera uno cuando termine el lavado.</p>
+          <p className="sub" style={{ textAlign: 'center', padding: '16px 0' }}>
+            Sin código activo. Toca el botón para generar el QR del lavado.
+          </p>
         )}
 
         <button className="btn-primary" onClick={() => generar(false)}>
@@ -274,7 +474,9 @@ export default function OperadorPage() {
 
       {/* Sección Buscar Cliente */}
       <div className="card">
-        <div className="label">Buscar cliente por teléfono</div>
+        <div className="label">
+          <span>🔍</span> Buscar cliente por teléfono
+        </div>
         <input
           inputMode="numeric"
           placeholder="Ej. 55 1234 5678"
@@ -287,7 +489,9 @@ export default function OperadorPage() {
 
         {customerData && (
           <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
-            <div style={{ fontWeight: 600, marginBottom: '14px' }}>Vehículos de: {customerData.phone}</div>
+            <div style={{ fontWeight: 800, marginBottom: '14px', color: 'var(--aqua-neon)' }}>
+              Vehículos registrados de: {customerData.phone}
+            </div>
 
             {(!customerData.cars || customerData.cars.length === 0) && (
               <p className="sub">Este cliente aún no tiene vehículos registrados.</p>
@@ -297,24 +501,24 @@ export default function OperadorPage() {
               <div
                 key={car.plate}
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '14px',
+                  background: 'rgba(3, 7, 10, 0.75)',
+                  border: '1.5px solid var(--line)',
+                  borderRadius: '16px',
                   padding: '16px',
                   marginBottom: '14px',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--aqua)', fontSize: '15px' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--aqua-neon)', fontSize: '16px' }}>
                     🚗 {car.plate}
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aqua)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--gold-light)' }}>
                     {car.stamps}/{MAX_STAMPS} sellos
                   </div>
                 </div>
 
                 {/* Gotas del vehículo */}
-                <div className="drops" style={{ margin: '14px 0' }}>
+                <div className="drops" style={{ margin: '12px 0' }}>
                   {Array.from({ length: MAX_STAMPS }).map((_, i) => (
                     <svg
                       key={i}
@@ -323,8 +527,8 @@ export default function OperadorPage() {
                     >
                       <path
                         d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
-                        fill={i < car.stamps ? 'var(--aqua)' : 'none'}
-                        stroke={i < car.stamps ? 'var(--aqua)' : 'rgba(143,226,255,0.35)'}
+                        fill={i < car.stamps ? 'var(--aqua-neon)' : 'none'}
+                        stroke={i < car.stamps ? 'var(--aqua-neon)' : 'rgba(143,226,255,0.35)'}
                         strokeWidth="1.6"
                       />
                     </svg>
@@ -349,11 +553,13 @@ export default function OperadorPage() {
                 </div>
 
                 {car.stamps >= MAX_STAMPS && confirmingPlate !== car.plate && (
-                  <div className="reward" style={{ marginTop: 14 }}>
-                    🎉 <strong>¡Lavado gratis disponible!</strong>
+                  <div className="reward-banner" style={{ marginTop: 14 }}>
+                    <div style={{ fontWeight: 900, color: 'var(--gold-light)' }}>
+                      🎉 ¡Lavado gratis disponible!
+                    </div>
                     <button
-                      className="btn-amber"
-                      style={{ marginTop: 10 }}
+                      className="btn-gold"
+                      style={{ marginTop: 10, marginBottom: 0 }}
                       onClick={() => setConfirmingPlate(car.plate)}
                     >
                       Canjear lavado gratis
@@ -362,19 +568,24 @@ export default function OperadorPage() {
                 )}
 
                 {confirmingPlate === car.plate && (
-                  <div className="reward" style={{ marginTop: 14 }}>
+                  <div className="reward-banner" style={{ marginTop: 14 }}>
                     Confirma en voz alta con el cliente:
                     <br />
-                    <strong>¿Canjear lavado gratis para el vehículo "{car.plate}"?</strong>
-                    <div className="row" style={{ marginTop: 10 }}>
+                    <strong>¿Canjear lavado gratis para "{car.plate}"?</strong>
+                    <div className="row" style={{ marginTop: 12 }}>
                       <button
-                        className="btn-amber"
+                        className="btn-gold"
                         onClick={() => confirmarCanje(car.plate)}
                         disabled={actionLoading}
+                        style={{ marginBottom: 0 }}
                       >
                         Sí, entregar gratis
                       </button>
-                      <button className="btn-ghost" onClick={() => setConfirmingPlate(null)}>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => setConfirmingPlate(null)}
+                        style={{ marginBottom: 0 }}
+                      >
                         Cancelar
                       </button>
                     </div>
@@ -385,11 +596,13 @@ export default function OperadorPage() {
 
             {/* Formulario para agregar nuevo vehículo al cliente */}
             <form onSubmit={handleAgregarCarro} style={{ marginTop: '16px' }}>
-              <div className="label">Agregar nuevo vehículo al cliente</div>
+              <div className="label">
+                <span>➕</span> Agregar nuevo vehículo al cliente
+              </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
-                  placeholder="Nombre (Ej. Jetta Blanco, Moto, etc.)"
+                  placeholder="Nombre (Ej. Jetta Blanco, Moto...)"
                   value={newPlate}
                   onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
                   style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
@@ -410,3 +623,4 @@ export default function OperadorPage() {
     </div>
   );
 }
+
