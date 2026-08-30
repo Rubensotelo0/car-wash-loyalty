@@ -63,7 +63,7 @@ export default function QrPaquetesPage() {
             Matriz de puntos aerodinámicos en cian neón y carbón, con silueta del Camaro y corrección de error de nivel H para lectura inmediata en cualquier celular.
           </p>
 
-          {/* Vista Previa del SVG */}
+          {/* Vista Previa del SVG Dinámico */}
           <div style={{
             background: '#FFFFFF',
             borderRadius: '18px',
@@ -74,7 +74,7 @@ export default function QrPaquetesPage() {
             maxWidth: '340px'
           }}>
             <img
-              src="/images/qr-camaro-paquetes.svg"
+              src={domain ? `/api/qr-paquetes?url=${encodeURIComponent(domain)}` : '/api/qr-paquetes'}
               alt="Código QR Camaro Car Wash La Carpita"
               style={{ width: '100%', height: 'auto', display: 'block' }}
             />
@@ -83,20 +83,23 @@ export default function QrPaquetesPage() {
           {/* URL Destino */}
           <div style={{ textAlign: 'left', marginBottom: 14 }}>
             <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>
-              Enlace que abre este QR:
+              Enlace codificado en el QR:
             </div>
             <input
               type="text"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
-              placeholder="https://tu-dominio.com/paquetes"
+              placeholder="https://tu-proyecto.vercel.app/paquetes"
               style={{ fontSize: '13px', padding: '10px 14px' }}
             />
+            <div style={{ fontSize: '11.5px', color: 'var(--aqua-soft)', marginTop: 4 }}>
+              💡 Detecta tu dominio de Vercel en automático o cámbialo si tienes dominio propio.
+            </div>
           </div>
 
           <div className="row">
             <a
-              href="/images/qr-camaro-paquetes.svg"
+              href={domain ? `/api/qr-paquetes?url=${encodeURIComponent(domain)}` : '/api/qr-paquetes'}
               download="qr-camaro-paquetes.svg"
               className="btn-primary"
               style={{ textDecoration: 'none' }}
