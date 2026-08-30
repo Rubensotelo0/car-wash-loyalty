@@ -24,9 +24,36 @@ export default function PaquetesPage() {
           <span>🏠</span> Servicio a Domicilio <span>✨</span>
         </div>
         <h1>Car Wash La Carpita</h1>
-        <p className="sub" style={{ margin: '4px 0 16px' }}>
+        <p className="sub" style={{ margin: '4px 0 10px' }}>
           Todo lo que tu auto necesita, en un solo servicio. Dejamos tu auto como nuevo.
         </p>
+        {/* Enlaces Rápidos de Contacto */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: 14 }}>
+          <a
+            href="https://wa.me/524421549668"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '12px', color: 'var(--aqua-neon)', textDecoration: 'none', background: 'rgba(0,210,255,0.08)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(0,210,255,0.25)' }}
+          >
+            📱 442 154 9668
+          </a>
+          <a
+            href="https://wa.me/524427190950"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '12px', color: 'var(--aqua-neon)', textDecoration: 'none', background: 'rgba(0,210,255,0.08)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(0,210,255,0.25)' }}
+          >
+            📱 442 719 0950
+          </a>
+          <a
+            href="https://www.instagram.com/car_wash_la_carpita"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '12px', color: '#FCB045', textDecoration: 'none', background: 'rgba(252,176,69,0.08)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(252,176,69,0.25)' }}
+          >
+            📸 @car_wash_la_carpita
+          </a>
+        </div>
       </div>
 
       {/* Barra de Navegación Rápida */}
@@ -108,6 +135,16 @@ export default function PaquetesPage() {
           <li className="service-item"><span>🔹</span> Tallado y limpieza en plásticos (tablero, puertas y tapetes)</li>
           <li className="service-item"><span>🌸</span> Aroma a escoger (preguntar opciones)</li>
         </ul>
+
+        {/* Botón WhatsApp Express */}
+        <a
+          href="https://wa.me/524421549668?text=%C2%A1Hola!%20Quiero%20m%C3%A1s%20detalles%20y%20agendar%20el%20paquete%20Express%20($300)%20a%20domicilio%20%F0%9F%9A%97"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-whatsapp"
+        >
+          <span>💬</span> Quiero más detalles del paquete Express
+        </a>
       </div>
 
       {/* 2. PAQUETE PREMIUM ($550) - DESTACADO */}
@@ -162,6 +199,16 @@ export default function PaquetesPage() {
           <li className="service-item star"><span>⭐</span> + Hidratación y protección para piel</li>
           <li className="service-item"><span>🌸</span> + Aroma premium a escoger</li>
         </ul>
+
+        {/* Botón WhatsApp Premium */}
+        <a
+          href="https://wa.me/524421549668?text=%C2%A1Hola!%20Quiero%20m%C3%A1s%20detalles%20y%20agendar%20el%20paquete%20Premium%20($550)%20a%20domicilio%20%E2%AD%90"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-whatsapp"
+        >
+          <span>💬</span> Quiero más detalles del paquete Premium
+        </a>
       </div>
 
       {/* 3. PAQUETE PREMIUM PLUS ($950) */}
@@ -212,6 +259,16 @@ export default function PaquetesPage() {
           <li className="service-item star"><span>⭐</span> Acabado brillante en plásticos del motor</li>
           <li className="service-item star"><span>⭐</span> Eliminación completa de aceite y grasa acumulada</li>
         </ul>
+
+        {/* Botón WhatsApp Premium Plus */}
+        <a
+          href="https://wa.me/524421549668?text=%C2%A1Hola!%20Quiero%20m%C3%A1s%20detalles%20y%20agendar%20el%20paquete%20Premium%20Plus%20($950)%20con%20motor%20a%20domicilio%20%F0%9F%94%A5"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-whatsapp"
+        >
+          <span>💬</span> Quiero más detalles del paquete Premium Plus
+        </a>
       </div>
 
       {/* SECCIÓN PROMOCIONAL: RESULTADOS REALES Y PRODUCTOS A DOMICILIO */}
@@ -283,6 +340,72 @@ export default function PaquetesPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* TARJETA DE CONTACTO Y CITAS */}
+      <div className="contact-card">
+        <div className="label" style={{ justifyContent: 'center', marginBottom: 8 }}>
+          <span>📞</span> Contáctanos y Agenda tu Cita
+        </div>
+        <p className="sub" style={{ fontSize: '13px', margin: '0 0 16px', color: 'var(--foam)' }}>
+          ¡Vamos hasta tu casa! Haz clic en cualquiera de nuestros números para llamarnos o enviarnos un WhatsApp:
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+          {/* Teléfono 1 */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a
+              href="https://wa.me/524421549668?text=%C2%A1Hola!%20Quiero%20m%C3%A1s%20detalles%20y%20agendar%20un%20servicio%20a%20domicilio%20de%20Car%20Wash%20La%20Carpita%20%F0%9F%9A%97%E2%9C%A8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-phone-badge"
+              style={{ flex: 1 }}
+            >
+              <span>💬 WhatsApp 1:</span>
+              <strong>442 154 9668</strong>
+            </a>
+            <a
+              href="tel:4421549668"
+              className="btn-ghost"
+              style={{ padding: '8px 14px', fontSize: '15px', minWidth: 'auto', display: 'flex', alignItems: 'center' }}
+              title="Llamar al 442 154 9668"
+            >
+              📞
+            </a>
+          </div>
+
+          {/* Teléfono 2 */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a
+              href="https://wa.me/524427190950?text=%C2%A1Hola!%20Quiero%20m%C3%A1s%20detalles%20y%20agendar%20un%20servicio%20a%20domicilio%20de%20Car%20Wash%20La%20Carpita%20%F0%9F%9A%97%E2%9C%A8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-phone-badge"
+              style={{ flex: 1 }}
+            >
+              <span>💬 WhatsApp 2:</span>
+              <strong>442 719 0950</strong>
+            </a>
+            <a
+              href="tel:4427190950"
+              className="btn-ghost"
+              style={{ padding: '8px 14px', fontSize: '15px', minWidth: 'auto', display: 'flex', alignItems: 'center' }}
+              title="Llamar al 442 719 0950"
+            >
+              📞
+            </a>
+          </div>
+        </div>
+
+        {/* Instagram Oficial */}
+        <a
+          href="https://www.instagram.com/car_wash_la_carpita"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-instagram"
+        >
+          <span>📸</span> Síguenos en Instagram: @car_wash_la_carpita
+        </a>
       </div>
 
       {/* Botón inferior de retorno a tarjeta */}
