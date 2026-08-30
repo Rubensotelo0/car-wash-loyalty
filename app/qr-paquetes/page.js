@@ -1,21 +1,50 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
 export default function QrPaquetesPage() {
   const router = useRouter();
-  const [domain, setDomain] = useState('');
-  const [activeTab, setActiveTab] = useState('vector'); // 'vector' | 'art'
+  const [url, setUrl] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
-      setDomain(`${window.location.origin}/paquetes`);
+      setUrl(`${window.location.origin}/paquetes`);
     }
   }, []);
 
+  function handleDownloadPNG() {
+    if (typeof document === 'undefined') return;
+    const canvas = document.getElementById('qr-paquetes-canvas');
+    if (!canvas) return;
+    const pngUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = pngUrl;
+    link.download = 'qr-paquetes-la-carpita.png';
+    link.click();
+  }
+
+  function handleDownloadSVG() {
+    if (typeof document === 'undefined') return;
+    const svgElement = document.getElementById('qr-paquetes-svg');
+    if (!svgElement) return;
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const link = document.createElement('a');
+    link.href = svgUrl;
+    link.download = 'qr-paquetes-la-carpita.svg';
+    link.click();
+  }
+
+  if (!isMounted) return null;
+
   return (
     <div className="wrap">
-      {/* Fondo con Burbujas Flotantes */}
+      {/* Fondo con Burbujas */}
       <div className="bubbles-container" aria-hidden="true">
         <div className="bubble" />
         <div className="bubble" />
@@ -26,146 +55,117 @@ export default function QrPaquetesPage() {
       {/* Encabezado */}
       <div className="brand-header">
         <div className="brand-badge">
-          <span>🚗</span> Código QR Exclusivo <span>✨</span>
+          <span>📱</span> Código QR Oficial <span>✨</span>
         </div>
-        <h1>QR Paquetes · Camaro</h1>
-        <p className="sub" style={{ margin: '4px 0 16px' }}>
-          Código QR estilizado con el Camaro de <strong>Car Wash La Carpita</strong> para imprimir en lonas, volantes o stickers.
+        <h1>QR de Paquetes</h1>
+        <p className="sub" style={{ margin: '4px 0 18px' }}>
+          Código QR limpio de alto contraste. Escanéalo con la cámara de cualquier iPhone o Android para abrir directamente tus paquetes y promociones.
         </p>
       </div>
 
-      {/* Selector de Edición */}
-      <div className="nav-tabs">
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'vector' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vector')}
-        >
-          ⚡ QR Escaneable Vector
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'art' ? 'active' : ''}`}
-          onClick={() => setActiveTab('art')}
-        >
-          🎨 Edición Arte de Puntos
-        </button>
+      {/* Tarjeta con Código QR Limpio y Escaneable */}
+      <div className="card card-glow" style={{ textAlign: 'center' }}>
+        <div className="label" style={{ justifyContent: 'center' }}>
+          <span>⚡</span> Listo para Escanear
+        </div>
+
+        {/* Contenedor del QR en Blanco Puro para Lectura Inmediata */}
+        <div style={{
+          display: 'inline-flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          background: '#FFFFFF',
+          padding: '16px',
+          borderRadius: '16px',
+          boxShadow: '0 0 28px rgba(0, 210, 255, 0.35)',
+          border: '2px solid var(--aqua-neon)',
+          margin: '10px auto 18px'
+        }}>
+          {url ? (
+            <>
+              {/* SVG para pantalla y descarga vectorial */}
+              <QRCodeSVG
+                id="qr-paquetes-svg"
+                value={url}
+                size={220}
+                bgColor="#FFFFFF"
+                fgColor="#000000"
+                level="M"
+              />
+              {/* Canvas oculto para exportar a PNG de alta resolución */}
+              <div style={{ display: 'none' }}>
+                <QRCodeCanvas
+                  id="qr-paquetes-canvas"
+                  value={url}
+                  size={600}
+                  bgColor="#FFFFFF"
+                  fgColor="#000000"
+                  level="M"
+                  includeMargin={true}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="sub" style={{ margin: 20 }}>Generando código...</p>
+          )}
+        </div>
+
+        {/* Campo de URL */}
+        <div style={{ textAlign: 'left', marginBottom: 16 }}>
+          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aqua-neon)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            URL que abre el código QR:
+          </div>
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://tu-proyecto.vercel.app/paquetes"
+            style={{ fontSize: '13.5px', padding: '12px 14px' }}
+          />
+          <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: 2 }}>
+            💡 En Vercel detecta automáticamente el dominio en vivo. Puedes cambiarlo aquí si deseas apuntar a otro enlace.
+          </div>
+        </div>
+
+        {/* Botones de Descarga */}
+        <div className="row" style={{ marginBottom: 8 }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleDownloadPNG}
+            disabled={!url}
+          >
+            📥 Descargar Imagen (.PNG)
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={handleDownloadSVG}
+            disabled={!url}
+          >
+            📥 Descargar Vector (.SVG)
+          </button>
+        </div>
       </div>
 
-      {activeTab === 'vector' ? (
-        /* VISTA 1: QR VECTORIAL 100% ESCANEABLE */
-        <div className="card card-glow" style={{ textAlign: 'center' }}>
-          <div className="label" style={{ justifyContent: 'center' }}>
-            <span>✅</span> 100% Funcional y Escaneable
-          </div>
-
-          <p className="sub" style={{ fontSize: '13px', marginBottom: 16 }}>
-            Matriz de puntos aerodinámicos en cian neón y carbón, con silueta del Camaro y corrección de error de nivel H para lectura inmediata en cualquier celular.
-          </p>
-
-          {/* Vista Previa del SVG Dinámico */}
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '18px',
-            padding: '16px',
-            boxShadow: '0 0 35px rgba(0, 210, 255, 0.4)',
-            border: '2.5px solid var(--aqua-neon)',
-            margin: '0 auto 18px',
-            maxWidth: '340px'
-          }}>
-            <img
-              src={domain ? `/api/qr-paquetes?url=${encodeURIComponent(domain)}` : '/api/qr-paquetes'}
-              alt="Código QR Camaro Car Wash La Carpita"
-              style={{ width: '100%', height: 'auto', display: 'block' }}
-            />
-          </div>
-
-          {/* URL Destino */}
-          <div style={{ textAlign: 'left', marginBottom: 14 }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>
-              Enlace codificado en el QR:
-            </div>
-            <input
-              type="text"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="https://tu-proyecto.vercel.app/paquetes"
-              style={{ fontSize: '13px', padding: '10px 14px' }}
-            />
-            <div style={{ fontSize: '11.5px', color: 'var(--aqua-soft)', marginTop: 4 }}>
-              💡 Detecta tu dominio de Vercel en automático o cámbialo si tienes dominio propio.
-            </div>
-          </div>
-
-          <div className="row">
-            <a
-              href={domain ? `/api/qr-paquetes?url=${encodeURIComponent(domain)}` : '/api/qr-paquetes'}
-              download="qr-camaro-paquetes.svg"
-              className="btn-primary"
-              style={{ textDecoration: 'none' }}
-            >
-              📥 Descargar Vectorial (.SVG)
-            </a>
-          </div>
-        </div>
-      ) : (
-        /* VISTA 2: EDICIÓN ARTE DE PUNTOS */
-        <div className="card card-glow" style={{ textAlign: 'center' }}>
-          <div className="label" style={{ justifyContent: 'center' }}>
-            <span>🎨</span> Puntos Dibujando el Camaro
-          </div>
-
-          <p className="sub" style={{ fontSize: '13px', marginBottom: 16 }}>
-            Diseño donde la cuadrícula de puntos y módulos de datos compone visualmente la silueta completa del Camaro en cian y blanco.
-          </p>
-
-          {/* Imagen de Arte */}
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '18px',
-            padding: '12px',
-            boxShadow: '0 0 35px rgba(0, 210, 255, 0.4)',
-            border: '2.5px solid var(--aqua-neon)',
-            margin: '0 auto 18px',
-            maxWidth: '340px'
-          }}>
-            <img
-              src="/images/camaro-dots-qr.jpg"
-              alt="Código QR de Arte con Puntos dibujando Camaro"
-              style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '10px' }}
-            />
-          </div>
-
-          <div className="row">
-            <a
-              href="/images/camaro-dots-qr.jpg"
-              download="camaro-dots-qr.jpg"
-              className="btn-gold"
-              style={{ textDecoration: 'none' }}
-            >
-              📥 Descargar Imagen (.JPG)
-            </a>
-          </div>
-        </div>
-      )}
-
       {/* Botones de Navegación */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 14 }}>
         <button
           type="button"
-          className="btn-ghost"
+          className="btn-gold"
           onClick={() => router.push('/paquetes')}
         >
-          ✨ Ir a Ver Página de Paquetes
+          ✨ Probar Página de Paquetes en Vivo
         </button>
         <button
           type="button"
           className="btn-ghost"
           onClick={() => router.push('/operador')}
         >
-          ⚙️ Ir al Panel de Operador
+          ⚙️ Regresar al Panel de Operador
         </button>
       </div>
     </div>
   );
 }
+

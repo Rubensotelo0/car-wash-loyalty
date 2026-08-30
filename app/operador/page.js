@@ -414,7 +414,7 @@ export default function OperadorPage() {
         onClick={() => router.push('/qr-paquetes')}
         style={{ marginBottom: 20 }}
       >
-        🚗 Ver y Descargar Código QR de Paquetes (Camaro)
+        📱 Ver y Descargar Código QR de Paquetes
       </button>
 
       {/* Sección Código QR (Sin marco blanco sobrante) */}
