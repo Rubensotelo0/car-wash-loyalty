@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
+import { ArrowLeft, DownloadSimple, QrCode, Storefront } from '@phosphor-icons/react';
 
 export default function QrPaquetesPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function QrPaquetesPage() {
   if (!isMounted) return null;
 
   return (
-    <div className="wrap">
+    <div className="wrap qr-page">
       {/* Fondo con Burbujas */}
       <div className="bubbles-container" aria-hidden="true">
         <div className="bubble" />
@@ -55,7 +56,7 @@ export default function QrPaquetesPage() {
       {/* Encabezado */}
       <div className="brand-header">
         <div className="brand-badge">
-          <span>📱</span> Código QR Oficial <span>✨</span>
+          <QrCode size={15} weight="bold" /> Código QR Oficial
         </div>
         <h1>QR de Paquetes</h1>
         <p className="sub" style={{ margin: '4px 0 18px' }}>
@@ -66,7 +67,7 @@ export default function QrPaquetesPage() {
       {/* Tarjeta con Código QR Limpio y Escaneable */}
       <div className="card card-glow" style={{ textAlign: 'center' }}>
         <div className="label" style={{ justifyContent: 'center' }}>
-          <span>⚡</span> Listo para Escanear
+          <QrCode size={16} weight="bold" /> Listo para escanear
         </div>
 
         {/* Contenedor del QR en Blanco Puro para Lectura Inmediata */}
@@ -135,7 +136,7 @@ export default function QrPaquetesPage() {
             onClick={handleDownloadPNG}
             disabled={!url}
           >
-            📥 Descargar Imagen (.PNG)
+            <DownloadSimple size={18} weight="bold" /> Descargar PNG
           </button>
           <button
             type="button"
@@ -143,7 +144,7 @@ export default function QrPaquetesPage() {
             onClick={handleDownloadSVG}
             disabled={!url}
           >
-            📥 Descargar Vector (.SVG)
+            <DownloadSimple size={18} weight="bold" /> Descargar SVG
           </button>
         </div>
       </div>
@@ -155,17 +156,16 @@ export default function QrPaquetesPage() {
           className="btn-gold"
           onClick={() => router.push('/paquetes')}
         >
-          ✨ Probar Página de Paquetes en Vivo
+          <Storefront size={18} weight="bold" /> Abrir paquetes
         </button>
         <button
           type="button"
           className="btn-ghost"
           onClick={() => router.push('/operador')}
         >
-          ⚙️ Regresar al Panel de Operador
+          <ArrowLeft size={18} weight="bold" /> Panel de operador
         </button>
       </div>
     </div>
   );
 }
-

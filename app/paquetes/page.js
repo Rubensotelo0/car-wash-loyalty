@@ -6,7 +6,7 @@ export default function PaquetesPage() {
   const router = useRouter();
 
   return (
-    <div className="wrap">
+    <div className="wrap packages-page">
       {/* Fondo con Burbujas Flotantes */}
       <div className="bubbles-container" aria-hidden="true">
         <div className="bubble" />

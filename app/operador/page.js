@@ -292,7 +292,7 @@ export default function OperadorPage() {
   // Estado de carga inicial
   if (authChecking) {
     return (
-      <div className="wrap">
+      <div className="wrap operator-page">
         <p className="sub" style={{ textAlign: 'center', marginTop: 40 }}>Verificando credenciales de operador...</p>
       </div>
     );
@@ -301,7 +301,7 @@ export default function OperadorPage() {
   // PANTALLA 1: LOGIN DE OPERADOR (Si no está autenticado)
   if (!operator) {
     return (
-      <div className="wrap">
+      <div className="wrap operator-page">
         {/* Fondo con Burbujas Flotantes */}
         <div className="bubbles-container" aria-hidden="true">
           <div className="bubble" />
@@ -361,7 +361,7 @@ export default function OperadorPage() {
 
   // PANTALLA 2: PANEL DE OPERADOR (Autenticado)
   return (
-    <div className="wrap">
+    <div className="wrap operator-page">
       {/* Fondo con Burbujas Flotantes */}
       <div className="bubbles-container" aria-hidden="true">
         <div className="bubble" />
@@ -635,4 +635,3 @@ export default function OperadorPage() {
     </div>
   );
 }
-

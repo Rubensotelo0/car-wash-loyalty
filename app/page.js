@@ -271,7 +271,7 @@ function ClientePageContent() {
   const currentStamps = activeCar ? activeCar.stamps : 0;
 
   return (
-    <div className="wrap">
+    <div className="wrap customer-page">
       {/* Fondo con Burbujas Flotantes */}
       <div className="bubbles-container" aria-hidden="true">
         <div className="bubble" />
@@ -712,9 +712,8 @@ function ClientePageContent() {
 
 export default function ClientePage() {
   return (
-    <Suspense fallback={<div className="wrap"><p className="sub">Cargando tarjeta...</p></div>}>
+    <Suspense fallback={<div className="wrap customer-page"><p className="sub">Cargando tarjeta...</p></div>}>
       <ClientePageContent />
     </Suspense>
   );
 }
-
