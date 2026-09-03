@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
 import { persistPhone, getStoredPhoneSync, getIndexedDBPhone, clearPersistedPhone } from '../lib/storage';
+import { ArrowClockwise, ArrowRight, Camera, Car, CheckCircle, Drop, Gift, HouseLine, Keyboard, Plus, SealCheck, Storefront, X } from '@phosphor-icons/react';
 
 const MAX_STAMPS = 6;
 
@@ -50,7 +51,7 @@ function ClientePageContent() {
         const cleanCode = codeFromUrl.trim().toUpperCase();
         setActiveCodeToClaim(cleanCode);
         if (!savedPhone) {
-          setToast({ msg: `🎉 ¡Código detectado! Ingresa tu número celular para continuar.`, kind: 'warn' });
+          setToast({ msg: 'Código detectado. Ingresa tu número celular para continuar.', kind: 'warn' });
         }
       }
     }
@@ -179,7 +180,7 @@ function ClientePageContent() {
         setSelectedPlate(upperPlate);
         setNewPlate('');
         setShowAddCarModal(false);
-        setToast({ msg: `✅ Vehículo "${upperPlate}" registrado con éxito.`, kind: '' });
+        setToast({ msg: `Vehículo "${upperPlate}" registrado con éxito.`, kind: '' });
         await fetchTarjetas(phone);
       } else {
         setToast({ msg: data.error || 'Error al agregar vehículo', kind: 'err' });
@@ -231,8 +232,8 @@ function ClientePageContent() {
 
       setToast({
         msg: data.stamps >= MAX_STAMPS
-          ? `🎉 ¡FELICIDADES! Tu vehículo "${cleanPlate}" completó los 6 sellos. ¡Tu próximo lavado es GRATIS!`
-          : `✅ ¡Sello sumado a "${cleanPlate}"! Ahora tiene ${data.stamps} de ${MAX_STAMPS} sellos.`,
+          ? `Tu vehículo "${cleanPlate}" completó los 6 sellos. Tu próximo lavado es gratis.`
+          : `Sello sumado a "${cleanPlate}". Ahora tiene ${data.stamps} de ${MAX_STAMPS} sellos.`,
         kind: '',
       });
 
@@ -272,27 +273,12 @@ function ClientePageContent() {
 
   return (
     <div className="wrap customer-page">
-      {/* Fondo con Burbujas Flotantes */}
-      <div className="bubbles-container" aria-hidden="true">
-        <div className="bubble" />
-        <div className="bubble" />
-        <div className="bubble" />
-        <div className="bubble" />
-        <div className="bubble" />
-        <div className="bubble" />
-        <div className="bubble" />
-      </div>
-
-      {/* Encabezado Principal de Marca */}
       <div className="brand-header">
         <div className="brand-badge">
-          <span>🏠</span> Servicio a Domicilio <span>✨</span>
+          <HouseLine size={15} weight="bold" /> Servicio a domicilio
         </div>
-        <h1>Car Wash La Carpita</h1>
-        <p className="brand-slogan">El brillo llega a tu puerta.</p>
-        <p className="sub" style={{ margin: '4px 0 16px' }}>
-          Acumula 5 lavados y el 6to es totalmente <strong>GRATIS</strong>.
-        </p>
+        <h1>Tu sexto lavado va por nuestra cuenta.</h1>
+        <p className="brand-slogan">Car Wash La Carpita</p>
       </div>
 
       {/* Barra de Navegación de Pestañas */}
@@ -301,28 +287,25 @@ function ClientePageContent() {
           type="button"
           className="nav-tab-btn active"
         >
-          💧 Mi Tarjeta Digital
+          <SealCheck size={18} weight="bold" /> Mi tarjeta
         </button>
         <button
           type="button"
           className="nav-tab-btn"
           onClick={() => router.push('/paquetes')}
         >
-          ✨ Paquetes y Promos
+          <Storefront size={18} weight="bold" /> Paquetes
         </button>
       </nav>
 
       {!phone ? (
         /* Pantalla 1: Ingreso de Teléfono */
-        <div className="card card-glow">
-          <div className="label">
-            <span>📱</span> Ingresa tu número de celular
-          </div>
-          <p className="sub" style={{ marginBottom: 16 }}>
-            Tu número es tu cuenta digital para consultar tus sellos y canjear tu lavado gratis.
-          </p>
+        <div className="card card-glow access-panel">
+          <div className="section-title"><div><Drop size={22} weight="fill" /><span>Consulta tus sellos</span></div><p>Tu número es tu cuenta digital.</p></div>
           <form onSubmit={handleGuardarTelefono}>
+            <label htmlFor="customer-phone">Número celular</label>
             <input
+              id="customer-phone"
               type="tel"
               inputMode="numeric"
               placeholder="Ej. 55 1234 5678"
@@ -331,7 +314,7 @@ function ClientePageContent() {
               autoFocus
             />
             <button type="submit" className="btn-primary" disabled={loading}>
-              {activeCodeToClaim ? '⚡ Guardar y reclamar mi sello' : '💧 Ver mi tarjeta digital'}
+              {activeCodeToClaim ? <><SealCheck size={19} weight="bold" /> Guardar y reclamar sello</> : <><ArrowRight size={19} weight="bold" /> Abrir mi tarjeta</>}
             </button>
           </form>
 
@@ -340,76 +323,46 @@ function ClientePageContent() {
             type="button"
             className="btn-ghost"
             onClick={() => router.push('/paquetes')}
-            style={{ marginTop: 4 }}
           >
-            ✨ Conocer Paquetes (Express, Premium, Plus)
+            <Storefront size={18} weight="bold" /> Consultar paquetes
           </button>
 
-          {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
+          {toast && <div className={`toast ${toast.kind}`} role="status">{toast.msg}</div>}
         </div>
       ) : (
         /* Pantalla 2: Vista Principal del Cliente */
         <>
           {/* MODAL / SECCIÓN DE PREGUNTA: ¿A QUÉ CARRO SUMAR EL CÓDIGO? */}
           {activeCodeToClaim && (
-            <div
-              className="card"
-              style={{
-                border: '2px solid var(--aqua-neon)',
-                background: 'linear-gradient(180deg, rgba(0,210,255,0.22), rgba(5,14,21,0.96))',
-                boxShadow: '0 0 28px rgba(0,210,255,0.35)',
-                marginBottom: 20,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: '11.5px', fontWeight: 900, color: 'var(--aqua-neon)', letterSpacing: '0.1em' }}>
-                  ⚡ CÓDIGO LISTO: {activeCodeToClaim}
-                </span>
-                <a
-                  className="link"
-                  style={{ fontSize: '12.5px', color: 'var(--coral)', fontWeight: 700 }}
-                  onClick={() => setActiveCodeToClaim(null)}
-                >
-                  ✕ Cancelar
-                </a>
+            <div className="card claim-panel">
+              <div className="claim-bar">
+                <span><CheckCircle size={17} weight="fill" /> Código listo: {activeCodeToClaim}</span>
+                <button type="button" className="icon-button" onClick={() => setActiveCodeToClaim(null)} aria-label="Cancelar código">
+                  <X size={18} weight="bold" />
+                </button>
               </div>
 
-              <h2 style={{ fontSize: '18px', margin: '0 0 6px', color: '#fff', fontWeight: 800 }}>
+              <h2>
                 ¿A cuál de tus autos le sumamos este sello?
               </h2>
-              <p className="sub" style={{ fontSize: '13px', marginBottom: 14 }}>
-                Toca tu vehículo registrado o ingresa uno nuevo:
+              <p className="sub">
+                Elige un vehículo registrado o añade uno nuevo.
               </p>
 
               {/* Botones de selección de vehículos existentes */}
               {cars.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: 14 }}>
+                <div className="claim-vehicles">
                   {cars.map((car) => (
                     <button
                       key={car.plate}
                       type="button"
                       onClick={() => handleAsignarSelloACarro(car.plate)}
                       disabled={loading || car.stamps >= MAX_STAMPS}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: 'rgba(3,7,10,0.85)',
-                        border: '1.5px solid var(--aqua-neon)',
-                        borderRadius: '12px',
-                        padding: '14px 16px',
-                        color: 'var(--foam)',
-                        textAlign: 'left',
-                        fontWeight: 800,
-                        fontSize: '14px',
-                        cursor: car.stamps >= MAX_STAMPS ? 'not-allowed' : 'pointer',
-                        opacity: car.stamps >= MAX_STAMPS ? 0.5 : 1,
-                        marginBottom: 0
-                      }}
+                      className="claim-vehicle"
                     >
-                      <span>🚗 {car.plate}</span>
-                      <span style={{ color: 'var(--aqua-neon)', fontSize: '13px' }}>
-                        {car.stamps >= MAX_STAMPS ? '¡Premio disponible!' : `${car.stamps}/${MAX_STAMPS} sellos ➔`}
+                      <span><Car size={18} weight="bold" /> {car.plate}</span>
+                      <span>
+                        {car.stamps >= MAX_STAMPS ? 'Premio disponible' : `${car.stamps}/${MAX_STAMPS} sellos`}
                       </span>
                     </button>
                   ))}
@@ -417,24 +370,24 @@ function ClientePageContent() {
               )}
 
               {/* Opción de asignar a un vehículo nuevo */}
-              <div style={{ borderTop: cars.length > 0 ? '1px solid var(--line)' : 'none', paddingTop: cars.length > 0 ? 12 : 0 }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: 8, fontWeight: 700 }}>
-                  {cars.length > 0 ? '— O sumar a un nuevo vehículo: —' : 'Escribe el nombre de tu vehículo para sumarle el sello:'}
+              <div className={`claim-new-vehicle ${cars.length > 0 ? 'has-vehicles' : ''}`}>
+                <div className="field-hint">
+                  {cars.length > 0 ? 'También puedes sumar a un vehículo nuevo' : 'Escribe el nombre de tu vehículo para sumarle el sello:'}
                 </div>
-                <form onSubmit={handleAsignarSelloANuevoCarro} style={{ display: 'flex', gap: '8px' }}>
+                <form onSubmit={handleAsignarSelloANuevoCarro} className="inline-form">
                   <input
                     type="text"
                     placeholder="Ej. Jetta, Sentra, Moto..."
                     value={newCarForCode}
                     onChange={(e) => setNewCarForCode(e.target.value.toUpperCase())}
-                    style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                    className="uppercase-input"
+                    aria-label="Nombre del vehículo nuevo"
                     autoFocus
                   />
                   <button
                     type="submit"
                     className="btn-primary"
                     disabled={loading || !newCarForCode.trim()}
-                    style={{ width: 'auto', padding: '10px 18px', marginBottom: 0 }}
                   >
                     Sumar sello
                   </button>
@@ -444,25 +397,25 @@ function ClientePageContent() {
           )}
 
           {/* TARJETA DE LEALTAD Y GOTAS */}
-          <div className="card">
+          <div className="card loyalty-panel">
             {/* Header de la tarjeta */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div className="label" style={{ margin: 0 }}>
-                <span>💧</span> Mi Tarjeta de Lealtad
+            <div className="loyalty-panel-header">
+              <div className="section-title compact">
+                <div><SealCheck size={21} weight="bold" /><span>Mi tarjeta de lealtad</span></div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <a className="link" onClick={() => fetchTarjetas(phone)}>🔄 Actualizar</a>
-                <a className="link" onClick={handleCambiarTelefono}>Cambiar tel. ({phone.slice(-4)})</a>
+              <div className="panel-tools">
+                <button type="button" onClick={() => fetchTarjetas(phone)} aria-label="Actualizar tarjeta"><ArrowClockwise size={18} weight="bold" /></button>
+                <button type="button" onClick={handleCambiarTelefono}>Cambiar {phone.slice(-4)}</button>
               </div>
             </div>
 
             {/* Selector visual de vehículos (Pills con borde neón) */}
             {cars.length > 0 ? (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: 8, fontWeight: 700 }}>
-                  Tus vehículos registrados:
+              <div className="vehicle-area">
+                <div className="field-hint">
+                  Tus vehículos
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="vehicle-selector">
                   {cars.map((car) => {
                     const isSelected = (activeCar && activeCar.plate === car.plate);
                     return (
@@ -473,64 +426,38 @@ function ClientePageContent() {
                           setSelectedPlate(car.plate);
                           setToast(null);
                         }}
-                        style={{
-                          width: 'auto',
-                          flex: '0 0 auto',
-                          padding: '8px 14px',
-                          borderRadius: '10px',
-                          fontSize: '13px',
-                          fontWeight: 800,
-                          background: isSelected ? 'linear-gradient(135deg, var(--aqua-neon), #0284c7)' : 'rgba(255,255,255,0.05)',
-                          color: isSelected ? '#03141f' : 'var(--foam)',
-                          border: isSelected ? '1.5px solid var(--aqua-neon)' : '1px solid var(--line)',
-                          boxShadow: isSelected ? '0 0 14px rgba(0,210,255,0.45)' : 'none',
-                          cursor: 'pointer',
-                          marginBottom: 0
-                        }}
+                        className={`vehicle-chip ${isSelected ? 'active' : ''}`}
                       >
-                        🚗 {car.plate} ({car.stamps}/{MAX_STAMPS})
+                        <Car size={17} weight="bold" /> {car.plate} <span>{car.stamps}/{MAX_STAMPS}</span>
                       </button>
                     );
                   })}
                   <button
                     type="button"
                     onClick={() => setShowAddCarModal(!showAddCarModal)}
-                    style={{
-                      width: 'auto',
-                      flex: '0 0 auto',
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      background: 'transparent',
-                      color: 'var(--aqua-soft)',
-                      border: '1px dashed var(--aqua-neon)',
-                      cursor: 'pointer',
-                      marginBottom: 0
-                    }}
+                    className="vehicle-chip add"
                   >
-                    + Nuevo auto
+                    <Plus size={17} weight="bold" /> Nuevo auto
                   </button>
                 </div>
               </div>
             ) : (
-              <div style={{ background: 'rgba(0,210,255,0.06)', border: '1px solid var(--line)', borderRadius: '14px', padding: '16px', marginBottom: 16 }}>
-                <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--aqua-neon)', marginBottom: 6 }}>
-                  ¡Bienvenido! Registra tu primer auto para tus sellos:
-                </div>
-                <form onSubmit={handleCrearVehiculo} style={{ display: 'flex', gap: '8px' }}>
+              <div className="empty-vehicle">
+                <Car size={27} weight="duotone" />
+                <div><strong>Registra tu primer vehículo</strong><span>Así podremos guardar sus lavados por separado.</span></div>
+                <form onSubmit={handleCrearVehiculo} className="inline-form">
                   <input
                     type="text"
                     placeholder="Ej. Jetta Blanco, Sentra, Moto..."
                     value={newPlate}
                     onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
-                    style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                    className="uppercase-input"
+                    aria-label="Nombre de tu vehículo"
                   />
                   <button
                     type="submit"
                     className="btn-primary"
                     disabled={loading || !newPlate.trim()}
-                    style={{ width: 'auto', padding: '10px 16px', marginBottom: 0 }}
                   >
                     Registrar
                   </button>
@@ -540,20 +467,20 @@ function ClientePageContent() {
 
             {/* Formulario desplegable para agregar nuevo vehículo */}
             {showAddCarModal && cars.length > 0 && (
-              <form onSubmit={handleCrearVehiculo} style={{ display: 'flex', gap: '8px', marginBottom: 16, background: 'rgba(0,0,0,0.4)', padding: 12, borderRadius: 12, border: '1px solid var(--line)' }}>
+              <form onSubmit={handleCrearVehiculo} className="inline-form add-vehicle-form">
                 <input
                   type="text"
                   placeholder="Nombre de otro vehículo (ej. Camioneta)"
                   value={newPlate}
                   onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
-                  style={{ flex: 1, textTransform: 'uppercase', marginBottom: 0 }}
+                  className="uppercase-input"
+                  aria-label="Nombre del nuevo vehículo"
                   autoFocus
                 />
                 <button
                   type="submit"
                   className="btn-primary"
                   disabled={loading || !newPlate.trim()}
-                  style={{ width: 'auto', padding: '10px 16px', marginBottom: 0 }}
                 >
                   Guardar
                 </button>
@@ -561,111 +488,64 @@ function ClientePageContent() {
                   type="button"
                   className="btn-ghost"
                   onClick={() => setShowAddCarModal(false)}
-                  style={{ width: 'auto', padding: '10px 12px', marginBottom: 0 }}
+                  aria-label="Cerrar formulario"
                 >
-                  ✕
+                  <X size={18} weight="bold" />
                 </button>
               </form>
             )}
 
             {/* Nombre del vehículo seleccionado actualmente */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--aqua-neon)' }}>
-                {activeCar ? `🚗 ${activeCar.plate}` : 'Vehículo'}
-              </span>
-              <span style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--gold-light)' }}>
+            <div className="loyalty-summary">
+              <span><Car size={20} weight="bold" /> {activeCar ? activeCar.plate : 'Vehículo'}</span>
+              <strong>
                 {currentStamps} de {MAX_STAMPS} sellos
-              </span>
+              </strong>
             </div>
 
             {/* LAS 6 GOTAS VISUALES CON EFECTO AGUA NEÓN */}
-            <div className="drops" style={{ margin: '14px 0' }}>
+            <div className="drops stamp-meter" aria-label={`${currentStamps} de ${MAX_STAMPS} sellos`}>
               {Array.from({ length: MAX_STAMPS }).map((_, i) => (
-                <svg
-                  key={i}
-                  className={`drop ${i < currentStamps ? 'filled' : ''}`}
-                  viewBox="0 0 24 28"
-                >
-                  <defs>
-                    <linearGradient id={`dropGrad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8FE2FF" />
-                      <stop offset="60%" stopColor="#00D2FF" />
-                      <stop offset="100%" stopColor="#0284C7" />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
-                    fill={i < currentStamps ? `url(#dropGrad-${i})` : 'rgba(0, 210, 255, 0.04)'}
-                    stroke={i < currentStamps ? 'var(--aqua-neon)' : 'rgba(143,226,255,0.25)'}
-                    strokeWidth="1.8"
-                  />
-                  {i < currentStamps && (
-                    <circle cx="9" cy="14" r="2.2" fill="#FFFFFF" opacity="0.75" />
-                  )}
-                </svg>
+                <span key={i} className={`stamp ${i < currentStamps ? 'filled' : ''}`}><Drop size={26} weight={i < currentStamps ? 'fill' : 'regular'} /></span>
               ))}
             </div>
 
             {/* Mensaje de estado / Premio */}
             {currentStamps >= MAX_STAMPS ? (
-              <div className="reward-banner">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '28px' }}>🎉</span>
+              <div className="reward-banner reward-content">
+                <div>
+                  <Gift size={29} weight="fill" />
                   <div>
-                    <div style={{ fontSize: '15px', fontWeight: 900, color: 'var(--gold-light)' }}>
-                      ¡LAVADO TOTALMENTE GRATIS!
-                    </div>
-                    <div style={{ fontSize: '12.5px', color: 'var(--foam)', marginTop: 2 }}>
+                    <strong>Lavado totalmente gratis</strong>
+                    <span>
                       Muéstrale esta pantalla al operador para canjear tu premio en este lavado.
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--text-dim)', margin: '4px 0 0' }}>
+              <p className="progress-copy">
                 Te faltan <strong>{MAX_STAMPS - currentStamps}</strong> {MAX_STAMPS - currentStamps === 1 ? 'lavado' : 'lavados'} para tu lavado gratis en este vehículo.
               </p>
             )}
           </div>
 
-          {/* SEGUNDA TARJETA: REGISTRAR NUEVO LAVADO (Con botón hacia Promociones) */}
-          <div className="card">
-            <div className="label">
-              <span>📷</span> Registrar nuevo lavado
+          {/* Registro de lavado: el escáner es la acción principal de la sección. */}
+          <div className="card wash-panel">
+            <div className="section-title">
+              <div><Camera size={21} weight="bold" /><span>Registrar nuevo lavado</span></div>
+              <p>Usa el QR del operador o escribe el código de 8 caracteres.</p>
             </div>
-            <p className="sub" style={{ marginBottom: 14 }}>
-              Escanea el código QR que te muestre el operador o escribe el código de 8 caracteres.
-            </p>
-
-            {/* BOTÓN PROMINENTE PARA IR A PROMOCIONES Y PAQUETES */}
-            <button
-              type="button"
-              className="btn-gold"
-              onClick={() => router.push('/paquetes')}
-              style={{ marginBottom: 14 }}
-            >
-              ✨ Ver Paquetes y Promociones (¡6ª Lavada Gratis!)
-            </button>
 
             {isScanning ? (
-              <div style={{ marginBottom: 14 }}>
-                <div
-                  id="reader"
-                  style={{
-                    width: '100%',
-                    borderRadius: '14px',
-                    overflow: 'hidden',
-                    background: 'var(--ink)',
-                    marginBottom: 10,
-                    border: '1.5px solid var(--aqua-neon)'
-                  }}
-                />
+              <div className="scanner-frame">
+                <div id="reader" />
                 <button
                   type="button"
                   className="btn-ghost"
                   onClick={() => setIsScanning(false)}
                 >
-                  ✕ Cerrar cámara
+                  <X size={18} weight="bold" /> Cerrar cámara
                 </button>
               </div>
             ) : (
@@ -678,16 +558,19 @@ function ClientePageContent() {
                 }}
                 disabled={loading}
               >
-                📷 Escanear código QR de lavado
+                <Camera size={20} weight="bold" /> Escanear código QR
               </button>
             )}
 
-            <div style={{ margin: '14px 0 10px', textAlign: 'center', fontSize: '12px', color: 'var(--text-dim)', fontWeight: 700 }}>
-              — O ingresa el código manual —
+            <div className="manual-divider">
+              <Keyboard size={17} weight="bold" />
+              <span>O ingresa el código manual</span>
             </div>
 
-            <form onSubmit={handleIniciarCodigoManual}>
+            <form onSubmit={handleIniciarCodigoManual} className="manual-entry">
+              <label htmlFor="manual-wash-code">Código de lavado</label>
               <input
+                id="manual-wash-code"
                 type="text"
                 placeholder="Ej. ABCD-1234"
                 value={manualInputCode}
@@ -699,11 +582,17 @@ function ClientePageContent() {
                 className="btn-ghost"
                 disabled={loading || !manualInputCode.trim()}
               >
-                Registrar sello manual
+                <SealCheck size={18} weight="bold" /> Registrar sello
               </button>
             </form>
 
-            {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}
+            {toast && <div className={`toast ${toast.kind}`} role="status">{toast.msg}</div>}
+
+            <button type="button" className="packages-link" onClick={() => router.push('/paquetes')}>
+              <Storefront size={22} weight="bold" />
+              <span><strong>¿Necesitas otro servicio?</strong>Conoce nuestros paquetes a domicilio.</span>
+              <ArrowRight size={19} weight="bold" />
+            </button>
           </div>
         </>
       )}
