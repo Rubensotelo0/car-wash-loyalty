@@ -289,6 +289,7 @@ function ClientePageContent() {
           <span>🏠</span> Servicio a Domicilio <span>✨</span>
         </div>
         <h1>Car Wash La Carpita</h1>
+        <p className="brand-slogan">El brillo llega a tu puerta.</p>
         <p className="sub" style={{ margin: '4px 0 16px' }}>
           Acumula 5 lavados y el 6to es totalmente <strong>GRATIS</strong>.
         </p>
