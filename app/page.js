@@ -6,7 +6,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { persistPhone, getStoredPhoneSync, getIndexedDBPhone, clearPersistedPhone } from '../lib/storage';
 import { ArrowClockwise, ArrowRight, Camera, Car, CheckCircle, Drop, Gift, HouseLine, Keyboard, Phone, Plus, SealCheck, Storefront, X } from '@phosphor-icons/react';
 
-const MAX_STAMPS = 6;
+const MAX_STAMPS = 5;
 
 function ClientePageContent() {
   const router = useRouter();
@@ -233,7 +233,7 @@ function ClientePageContent() {
 
       setToast({
         msg: data.stamps >= MAX_STAMPS
-          ? `Tu vehículo "${cleanPlate}" completó los 6 sellos. Tu próximo lavado es gratis.`
+          ? `¡Tu vehículo "${cleanPlate}" completó los 5 sellos! Tu 6º lavado es totalmente gratis.`
           : `Sello sumado a "${cleanPlate}". Ahora tiene ${data.stamps} de ${MAX_STAMPS} sellos.`,
         kind: '',
       });
@@ -442,7 +442,7 @@ function ClientePageContent() {
                         }}
                         className={`vehicle-chip ${isSelected ? 'active' : ''}`}
                       >
-                        <Car size={17} weight="bold" /> {car.plate} <span>{car.stamps}/{MAX_STAMPS}</span>
+                        <Car size={17} weight="bold" /> {car.plate} <span>{car.stamps >= MAX_STAMPS ? '🎁 Gratis' : `${car.stamps}/${MAX_STAMPS}`}</span>
                       </button>
                     );
                   })}
@@ -511,13 +511,18 @@ function ClientePageContent() {
 
             <div className="loyalty-summary">
               <span><Car size={20} weight="bold" /> {activeCar ? activeCar.plate : 'Vehículo'}</span>
-              <strong>{currentStamps}/{MAX_STAMPS} sellos</strong>
+              <strong>{currentStamps >= MAX_STAMPS ? '¡Premio listo!' : `${currentStamps}/${MAX_STAMPS} sellos`}</strong>
             </div>
 
             <div className="drops stamp-meter" aria-label={`${currentStamps} de ${MAX_STAMPS} sellos`}>
               {Array.from({ length: MAX_STAMPS }).map((_, i) => (
-                <span key={i} className={`stamp ${i < currentStamps ? 'filled' : ''}`}><Drop size={26} weight={i < currentStamps ? 'fill' : 'regular'} /></span>
+                <span key={i} className={`stamp ${i < currentStamps ? 'filled' : ''}`} title={`Sello ${i + 1}`}>
+                  <Drop size={26} weight={i < currentStamps ? 'fill' : 'regular'} />
+                </span>
               ))}
+              <span className={`stamp stamp-reward ${currentStamps >= MAX_STAMPS ? 'filled' : ''}`} title="6º Lavado Gratis">
+                <Gift size={24} weight={currentStamps >= MAX_STAMPS ? 'fill' : 'bold'} />
+              </span>
             </div>
 
             {currentStamps >= MAX_STAMPS ? (
@@ -525,13 +530,13 @@ function ClientePageContent() {
                 <div>
                   <Gift size={29} weight="fill" />
                   <div>
-                    <strong>Lavado totalmente gratis</strong>
-                    <span>Muéstrale esta pantalla al operador para canjearlo.</span>
+                    <strong>6º Lavado totalmente gratis</strong>
+                    <span>Tu sexto lavado va por nuestra cuenta. Muéstrale esta pantalla al operador para canjearlo.</span>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="progress-copy">Faltan <strong>{MAX_STAMPS - currentStamps}</strong> {MAX_STAMPS - currentStamps === 1 ? 'lavado' : 'lavados'}.</p>
+              <p className="progress-copy">Faltan <strong>{MAX_STAMPS - currentStamps}</strong> {MAX_STAMPS - currentStamps === 1 ? 'lavado' : 'lavados'} para tu lavado gratis.</p>
             )}
           </div>
 

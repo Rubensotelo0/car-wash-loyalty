@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
+import { Drop, Gift } from '@phosphor-icons/react';
 
-const MAX_STAMPS = 6;
+const MAX_STAMPS = 5;
 const TTL_MS = 90 * 1000;
 
 export default function OperadorPage() {
@@ -524,27 +525,21 @@ export default function OperadorPage() {
                   <div style={{ fontWeight: 800, color: 'var(--aqua-neon)', fontSize: '16px' }}>
                     🚗 {car.plate}
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--gold-light)' }}>
-                    {car.stamps}/{MAX_STAMPS} sellos
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: car.stamps >= MAX_STAMPS ? 'var(--gold-light)' : 'var(--aqua-soft)' }}>
+                    {car.stamps >= MAX_STAMPS ? '🎉 ¡Lavado gratis listo!' : `${car.stamps}/${MAX_STAMPS} sellos`}
                   </div>
                 </div>
 
-                {/* Gotas del vehículo */}
-                <div className="drops" style={{ margin: '12px 0' }}>
+                {/* 6 Casillas: 5 Gotas + 1 Casilla de Premio Especial */}
+                <div className="stamp-meter" style={{ margin: '14px 0' }}>
                   {Array.from({ length: MAX_STAMPS }).map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`drop ${i < car.stamps ? 'filled' : ''}`}
-                      viewBox="0 0 24 28"
-                    >
-                      <path
-                        d="M12 1C12 1 3 12.5 3 18.5C3 23.7 7.3 27 12 27C16.7 27 21 23.7 21 18.5C21 12.5 12 1 12 1Z"
-                        fill={i < car.stamps ? 'var(--aqua-neon)' : 'none'}
-                        stroke={i < car.stamps ? 'var(--aqua-neon)' : 'rgba(143,226,255,0.35)'}
-                        strokeWidth="1.6"
-                      />
-                    </svg>
+                    <span key={i} className={`stamp ${i < car.stamps ? 'filled' : ''}`} title={`Sello ${i + 1}`}>
+                      <Drop size={22} weight={i < car.stamps ? 'fill' : 'regular'} />
+                    </span>
                   ))}
+                  <span className={`stamp stamp-reward ${car.stamps >= MAX_STAMPS ? 'filled' : ''}`} title="6º Lavado Gratis">
+                    <Gift size={20} weight={car.stamps >= MAX_STAMPS ? 'fill' : 'bold'} />
+                  </span>
                 </div>
 
                 <div className="row" style={{ marginTop: '10px' }}>

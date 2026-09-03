@@ -870,14 +870,28 @@ a.link {
 .loyalty-summary span { min-width: 0; display: flex; align-items: center; gap: 8px; color: #fff; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
 .loyalty-summary span svg { color: var(--aqua-neon); flex: 0 0 auto; }
 .loyalty-summary strong { flex: 0 0 auto; color: var(--aqua-soft); font-size: 12px; }
+.stamp-meter,
 .customer-page .stamp-meter { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; margin: 0; padding: 0; }
-.stamp { aspect-ratio: 1; display: grid; place-items: center; color: #416170; background: #071821; border: 1px solid var(--line); border-radius: 10px; }
+.stamp { aspect-ratio: 1; display: grid; place-items: center; color: #416170; background: #071821; border: 1px solid var(--line); border-radius: 10px; transition: all 0.25s ease-out; }
 .stamp.filled { color: #06232d; background: var(--aqua-neon); border-color: var(--aqua-neon); animation: stamp-fill 240ms var(--ease-out) both; }
 .stamp.filled:nth-child(2) { animation-delay: 25ms; }
 .stamp.filled:nth-child(3) { animation-delay: 50ms; }
 .stamp.filled:nth-child(4) { animation-delay: 75ms; }
 .stamp.filled:nth-child(5) { animation-delay: 100ms; }
 .stamp.filled:nth-child(6) { animation-delay: 125ms; }
+.stamp.stamp-reward {
+  color: rgba(253, 224, 71, 0.50);
+  background: rgba(245, 197, 24, 0.05);
+  border: 1px dashed rgba(245, 197, 24, 0.40);
+  position: relative;
+}
+.stamp.stamp-reward.filled {
+  color: #06232d;
+  background: linear-gradient(135deg, #FDE047 0%, #F5C518 100%);
+  border: 1px solid var(--gold-light);
+  box-shadow: 0 0 18px var(--gold-glow);
+  animation: stamp-fill 280ms var(--ease-out) 125ms both;
+}
 .reward-content { margin: 16px 0 0; padding: 14px; border-radius: 12px; box-shadow: none; }
 .reward-content > div { display: flex; align-items: center; gap: 11px; }
 .reward-content svg { flex: 0 0 auto; color: var(--gold-light); }
