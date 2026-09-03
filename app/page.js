@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Html5Qrcode } from 'html5-qrcode';
 import { persistPhone, getStoredPhoneSync, getIndexedDBPhone, clearPersistedPhone } from '../lib/storage';
-import { ArrowClockwise, ArrowRight, Camera, Car, CheckCircle, Drop, Gift, HouseLine, Keyboard, Plus, SealCheck, Storefront, X } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowRight, Camera, Car, CheckCircle, Drop, Gift, HouseLine, Keyboard, Phone, Plus, SealCheck, Storefront, X } from '@phosphor-icons/react';
 
 const MAX_STAMPS = 6;
 
@@ -273,13 +274,32 @@ function ClientePageContent() {
 
   return (
     <div className="wrap customer-page">
-      <div className="brand-header">
-        <div className="brand-badge">
-          <HouseLine size={15} weight="bold" /> Servicio a domicilio
+      <header className="loyalty-hero">
+        <div className="loyalty-hero-copy">
+          <div className="loyalty-wordmark">
+            <Drop size={20} weight="fill" />
+            <span>Car Wash <strong>La Carpita</strong></span>
+          </div>
+          <h1>
+            <span>Cada lavado cuenta.</span>
+            <strong>El sexto lavado es gratis.</strong>
+          </h1>
+          <p>Consulta tus sellos por vehículo y canjea aquí tu lavado gratis.</p>
         </div>
-        <h1>Tu sexto lavado va por nuestra cuenta.</h1>
-        <p className="brand-slogan">Car Wash La Carpita</p>
-      </div>
+        <figure className="loyalty-hero-visual">
+          <Image
+            src="/images/espuma.jpg"
+            alt="Camioneta cubierta de espuma durante un lavado a domicilio"
+            fill
+            priority
+            sizes="(max-width: 520px) 100vw, 520px"
+          />
+          <figcaption>
+            <span><HouseLine size={18} weight="bold" /> Servicio a domicilio</span>
+            <strong><SealCheck size={18} weight="fill" /> Completa 5 sellos. El próximo lavado es gratis.</strong>
+          </figcaption>
+        </figure>
+      </header>
 
       {/* Barra de Navegación de Pestañas */}
       <nav className="nav-tabs">
@@ -403,10 +423,17 @@ function ClientePageContent() {
               <div className="section-title compact">
                 <div><SealCheck size={21} weight="bold" /><span>Mi tarjeta de lealtad</span></div>
               </div>
-              <div className="panel-tools">
-                <button type="button" onClick={() => fetchTarjetas(phone)} aria-label="Actualizar tarjeta"><ArrowClockwise size={18} weight="bold" /></button>
-                <button type="button" onClick={handleCambiarTelefono}>Cambiar {phone.slice(-4)}</button>
-              </div>
+            </div>
+
+            <div className="account-actions">
+              <button type="button" onClick={() => fetchTarjetas(phone)} className={loading ? 'is-loading' : ''} disabled={loading}>
+                <ArrowClockwise size={20} weight="bold" />
+                <span><strong>Actualizar mis sellos</strong><small>{loading ? 'Sincronizando tarjeta...' : 'Sincronizar tarjeta'}</small></span>
+              </button>
+              <button type="button" onClick={handleCambiarTelefono}>
+                <Phone size={20} weight="bold" />
+                <span><strong>Cambiar número</strong><small>Cuenta terminada en {phone.slice(-4)}</small></span>
+              </button>
             </div>
 
             {/* Selector visual de vehículos (Pills con borde neón) */}
