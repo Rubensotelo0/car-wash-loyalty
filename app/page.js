@@ -275,30 +275,24 @@ function ClientePageContent() {
   return (
     <div className="wrap customer-page">
       <header className="loyalty-hero">
-        <div className="loyalty-hero-copy">
+        <Image
+          src="/images/espuma.jpg"
+          alt="Camioneta cubierta de espuma durante un lavado a domicilio"
+          fill
+          priority
+          sizes="(max-width: 520px) 100vw, 520px"
+        />
+        <div className="loyalty-hero-content">
           <div className="loyalty-wordmark">
             <Drop size={20} weight="fill" />
             <span>Car Wash <strong>La Carpita</strong></span>
           </div>
           <h1>
-            <span>Cada lavado cuenta.</span>
-            <strong>El sexto lavado es gratis.</strong>
+            <span>5 lavados.</span>
+            <strong>El sexto es gratis.</strong>
           </h1>
-          <p>Consulta tus sellos por vehículo y canjea aquí tu lavado gratis.</p>
+          <span className="hero-home"><HouseLine size={17} weight="bold" /> Servicio a domicilio</span>
         </div>
-        <figure className="loyalty-hero-visual">
-          <Image
-            src="/images/espuma.jpg"
-            alt="Camioneta cubierta de espuma durante un lavado a domicilio"
-            fill
-            priority
-            sizes="(max-width: 520px) 100vw, 520px"
-          />
-          <figcaption>
-            <span><HouseLine size={18} weight="bold" /> Servicio a domicilio</span>
-            <strong><SealCheck size={18} weight="fill" /> Completa 5 sellos. El próximo lavado es gratis.</strong>
-          </figcaption>
-        </figure>
       </header>
 
       {/* Barra de Navegación de Pestañas */}
@@ -418,21 +412,14 @@ function ClientePageContent() {
 
           {/* TARJETA DE LEALTAD Y GOTAS */}
           <div className="card loyalty-panel">
-            {/* Header de la tarjeta */}
-            <div className="loyalty-panel-header">
-              <div className="section-title compact">
-                <div><SealCheck size={21} weight="bold" /><span>Mi tarjeta de lealtad</span></div>
-              </div>
-            </div>
-
             <div className="account-actions">
               <button type="button" onClick={() => fetchTarjetas(phone)} className={loading ? 'is-loading' : ''} disabled={loading}>
                 <ArrowClockwise size={20} weight="bold" />
-                <span><strong>Actualizar mis sellos</strong><small>{loading ? 'Sincronizando tarjeta...' : 'Sincronizar tarjeta'}</small></span>
+                <span>{loading ? 'Actualizando...' : 'Actualizar sellos'}</span>
               </button>
               <button type="button" onClick={handleCambiarTelefono}>
                 <Phone size={20} weight="bold" />
-                <span><strong>Cambiar número</strong><small>Cuenta terminada en {phone.slice(-4)}</small></span>
+                <span>Cambiar número</span>
               </button>
             </div>
 
@@ -522,46 +509,36 @@ function ClientePageContent() {
               </form>
             )}
 
-            {/* Nombre del vehículo seleccionado actualmente */}
             <div className="loyalty-summary">
               <span><Car size={20} weight="bold" /> {activeCar ? activeCar.plate : 'Vehículo'}</span>
-              <strong>
-                {currentStamps} de {MAX_STAMPS} sellos
-              </strong>
+              <strong>{currentStamps}/{MAX_STAMPS} sellos</strong>
             </div>
 
-            {/* LAS 6 GOTAS VISUALES CON EFECTO AGUA NEÓN */}
             <div className="drops stamp-meter" aria-label={`${currentStamps} de ${MAX_STAMPS} sellos`}>
               {Array.from({ length: MAX_STAMPS }).map((_, i) => (
                 <span key={i} className={`stamp ${i < currentStamps ? 'filled' : ''}`}><Drop size={26} weight={i < currentStamps ? 'fill' : 'regular'} /></span>
               ))}
             </div>
 
-            {/* Mensaje de estado / Premio */}
             {currentStamps >= MAX_STAMPS ? (
               <div className="reward-banner reward-content">
                 <div>
                   <Gift size={29} weight="fill" />
                   <div>
                     <strong>Lavado totalmente gratis</strong>
-                    <span>
-                      Muéstrale esta pantalla al operador para canjear tu premio en este lavado.
-                    </span>
+                    <span>Muéstrale esta pantalla al operador para canjearlo.</span>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="progress-copy">
-                Te faltan <strong>{MAX_STAMPS - currentStamps}</strong> {MAX_STAMPS - currentStamps === 1 ? 'lavado' : 'lavados'} para tu lavado gratis en este vehículo.
-              </p>
+              <p className="progress-copy">Faltan <strong>{MAX_STAMPS - currentStamps}</strong> {MAX_STAMPS - currentStamps === 1 ? 'lavado' : 'lavados'}.</p>
             )}
           </div>
 
           {/* Registro de lavado: el escáner es la acción principal de la sección. */}
           <div className="card wash-panel">
             <div className="section-title">
-              <div><Camera size={21} weight="bold" /><span>Registrar nuevo lavado</span></div>
-              <p>Usa el QR del operador o escribe el código de 8 caracteres.</p>
+              <div><Camera size={21} weight="bold" /><span>Registrar lavado</span></div>
             </div>
 
             {isScanning ? (
@@ -591,7 +568,7 @@ function ClientePageContent() {
 
             <div className="manual-divider">
               <Keyboard size={17} weight="bold" />
-              <span>O ingresa el código manual</span>
+              <span>O usar código</span>
             </div>
 
             <form onSubmit={handleIniciarCodigoManual} className="manual-entry">
@@ -617,7 +594,7 @@ function ClientePageContent() {
 
             <button type="button" className="packages-link" onClick={() => router.push('/paquetes')}>
               <Storefront size={22} weight="bold" />
-              <span><strong>¿Necesitas otro servicio?</strong>Conoce nuestros paquetes a domicilio.</span>
+              <strong>Ver paquetes</strong>
               <ArrowRight size={19} weight="bold" />
             </button>
           </div>
