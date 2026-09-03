@@ -31,6 +31,56 @@ function ClientePageContent() {
 
   const qrScannerRef = useRef(null);
 
+  // Verificar si un código es válido, no usado y no expirado antes de mostrar la selección
+  async function procesarCodigoEntrante(rawToken, shouldScroll = false, currentPhone = null) {
+    if (!rawToken) return false;
+    const clean = rawToken.trim().toUpperCase();
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/validar-codigo?token=${clean}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        setActiveCodeToClaim(null);
+        setToast({ msg: data.error || 'Este código ya fue usado o no es válido.', kind: 'err' });
+        if (typeof window !== 'undefined') {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+        return false;
+      }
+
+      // Código válido y disponible
+      setActiveCodeToClaim(clean);
+      const activePhone = currentPhone || phone;
+      if (!activePhone) {
+        setToast({ msg: 'Código válido listo. Ingresa tu número celular para continuar.', kind: 'warn' });
+      } else {
+        setToast({ msg: `Código ${clean} listo. Selecciona a qué vehículo asignarlo.`, kind: '' });
+      }
+
+      if (shouldScroll) {
+        setTimeout(() => {
+          const el = document.getElementById('claim-panel-section') || document.getElementById('access-panel-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 180);
+      }
+      return true;
+    } catch (err) {
+      console.error('Error al verificar código:', err);
+      setActiveCodeToClaim(null);
+      setToast({ msg: 'Error de conexión al verificar el código.', kind: 'err' });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // 1. Cargar teléfono guardado y procesar código QR desde URL (?code=ABCD)
   useEffect(() => {
     setIsMounted(true);
@@ -50,15 +100,25 @@ function ClientePageContent() {
 
       if (codeFromUrl) {
         const cleanCode = codeFromUrl.trim().toUpperCase();
-        setActiveCodeToClaim(cleanCode);
-        if (!savedPhone) {
-          setToast({ msg: 'Código detectado. Ingresa tu número celular para continuar.', kind: 'warn' });
-        }
+        await procesarCodigoEntrante(cleanCode, true, savedPhone);
       }
     }
 
     initSession();
   }, [searchParams]);
+
+  // Auto-scroll al panel de selección cuando se activa un código
+  useEffect(() => {
+    if (activeCodeToClaim) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('claim-panel-section') || document.getElementById('access-panel-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [activeCodeToClaim, phone]);
 
   // 2. Manejo de escáner QR con cámara
   useEffect(() => {
@@ -79,8 +139,7 @@ function ClientePageContent() {
                 tokenToProcess = tokenToProcess.split('code=')[1].split('&')[0];
               }
               const cleanToken = tokenToProcess.toUpperCase();
-              setActiveCodeToClaim(cleanToken);
-              setToast({ msg: `Código ${cleanToken} leído. Selecciona a qué vehículo asignarlo.`, kind: '' });
+              await procesarCodigoEntrante(cleanToken, true);
             },
             () => {}
           );
@@ -260,11 +319,11 @@ function ClientePageContent() {
     await handleAsignarSelloACarro(upper);
   }
 
-  function handleIniciarCodigoManual(e) {
+  async function handleIniciarCodigoManual(e) {
     e.preventDefault();
     if (!manualInputCode.trim()) return;
     const clean = manualInputCode.trim().toUpperCase();
-    setActiveCodeToClaim(clean);
+    await procesarCodigoEntrante(clean, true);
   }
 
   if (!isMounted) return null;
